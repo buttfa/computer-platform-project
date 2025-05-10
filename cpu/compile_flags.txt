@@ -1,4 +1,7 @@
 clang++
+-W
+-Wall 
+-Wextra 
 -std=c++17
 -I./build
 -I/usr/share/verilator/include
