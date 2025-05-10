@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
         top->clk ^= 1; // 切换时钟信号 1 ^ 0 = 1 1 ^ 1 = 0 0 ^ 0= 0
         top->eval();   // 更新电路状态
         m_trace->dump(sim_time); // 将当前状态写入波形文件
-        printf("tick=%d, f=%d\n", sim_time, top->f);
+        printf("tick=%ld, f=%d\n", sim_time, top->f);
     }
 
     m_trace->close();

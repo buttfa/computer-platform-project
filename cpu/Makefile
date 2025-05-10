@@ -1,5 +1,5 @@
 compile:
-	cd src && verilator $(TOP).v $(SRC) ../test/$(TOP).cpp --top-module $(TOP) -Mdir ../build --cc --exe --trace --debug  -CFLAGS "-g -O0" -LDFLAGS "-g"
+	cd src && verilator $(TOP).v $(SRC) ../test/$(TOP).cpp --top-module $(TOP) -Mdir ../build --cc --exe --trace -CFLAGS "-g -O0" -LDFLAGS "-g"
 	make -C build -f V$(TOP).mk V$(TOP)
 	cp build/V$(TOP) sim/V$(TOP)
 
