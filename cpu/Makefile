@@ -1,5 +1,5 @@
 compile:
-	cd src && verilator $(TOP).v ../test/$(TOP).cpp --top-module $(TOP) -Mdir ../build --cc --exe --trace --debug  -CFLAGS "-g -O0" -LDFLAGS "-g"
+	cd src && verilator $(TOP).v $(SRC) ../test/$(TOP).cpp --top-module $(TOP) -Mdir ../build --cc --exe --trace --debug  -CFLAGS "-g -O0" -LDFLAGS "-g"
 	make -C build -f V$(TOP).mk V$(TOP)
 	cp build/V$(TOP) sim/V$(TOP)
 
@@ -9,11 +9,11 @@ run: compile
 sim: run
 	gtkwave ./sim/$(TOP).vcd
 
+test: 
+	mkdir -p sim build
+	make sim TOP=$(TOP) SRC="$(SRC)"
+
 clean:
-	rm -rf build sim/*
+	rm -rf build sim
 
-module_test: 
-	make sim TOP=$(MODULE_NAME)
-
-MODULES=$(shell ls src/*.v)
-cpu_test:
+.PHONY: compile run sim clean test
