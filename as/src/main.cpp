@@ -1,460 +1,218 @@
-// #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <map>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
-
 using namespace std;
 
-// Helper to trim whitespace from both ends of string
-static inline string trim(const string& s) {
-    auto start = s.find_first_not_of(" \t\r\n");
-    if (start == string::npos)
-        return "";
-    auto end = s.find_last_not_of(" \t\r\n");
-    return s.substr(start, end - start + 1);
+int reg_idx(const string& r) {
+    if (r.size() < 2 || r[0] != 'x')
+        throw invalid_argument("非法寄存器名");
+    int idx = stoi(r.substr(1));
+    if (idx < 0 || idx > 31)
+        throw invalid_argument("寄存器编号超出范围");
+    return idx;
 }
 
-// Helper to split a string by whitespace (space or tab)
-static vector<string> split(const string& s) {
-    vector<string> tokens;
-    istringstream iss(s);
-    string tok;
-    while (iss >> tok) {
-        tokens.push_back(tok);
-    }
-    return tokens;
+// 写入 32 位大端
+void write_uint32_be(ofstream& fout, uint32_t val) {
+    for (int i = 0; i < 4; ++i)
+        fout.put((val >> (8 * (3 - i))) & 0xFF);
 }
 
-// Parse register name, expecting "xN" or "rN"
-static int parseRegister(const string& s) {
-    if (s.size() < 2)
-        return -1;
-    if (s[0] == 'x' || s[0] == 'r') {
-        int reg = stoi(s.substr(1));
-        return reg;
-    }
-    return -1;
-}
-
-// Convert string to integer, support decimal or 0x hex
-static int64_t parseNumber(const string& s) {
-    int base = 10;
-    string str = s;
-    if (str.size() > 1 && str[0] == '0' && str[1] == 'x') {
-        base = 16;
-        str = str.substr(2);
-    }
-    return stoll(str, nullptr, base);
+// 写入 64 位大端
+void write_uint64_be(ofstream& fout, uint64_t val) {
+    for (int i = 0; i < 8; ++i)
+        fout.put((val >> (8 * (7 - i))) & 0xFF);
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 3) {
-        cerr << "Usage: assembler <input_file> <output_base>" << endl;
+    if (argc < 2) {
+        cerr
+            << "用法: assembler_bin_output <输出文件> [起始地址, 默认0x1000]\n";
         return 1;
     }
-    string input_file = argv[1];
-    string output_base = argv[2];
-    ifstream infile(input_file);
-    if (!infile) {
-        cerr << "Error: cannot open input file " << input_file << endl;
+
+    const char* output_filename = argv[1];
+    uint64_t code_start = (argc >= 3) ? strtoull(argv[2], nullptr, 0) : 0x1000;
+
+    ofstream fout(output_filename, ios::binary);
+    if (!fout) {
+        cerr << "无法打开输出文件: " << output_filename << '\n';
         return 1;
     }
-    // Read all lines of input
-    vector<string> lines;
+
+    // 写入头部：分隔符 + 起始地址（大端）
+    write_uint32_be(fout, 0);
+    write_uint64_be(fout, code_start);
+
     string line;
-    while (getline(infile, line)) {
-        lines.push_back(line);
-    }
-    infile.close();
+    int line_no = 0;
+    bool have_prev_addr = false;
+    int prev_addr = 0;
+    unordered_set<int> used_addrs;
 
-    // First pass: record label addresses
-    map<string, int64_t> label_addr; // 修改: 添加符号表用于存储标签地址
-    int64_t PC = 0;
-    for (auto& orig_line : lines) {
-        string s = orig_line;
-        // Remove comments (';' and everything after)
-        size_t comment_pos = s.find(';');
-        if (comment_pos != string::npos) {
-            s = s.substr(0, comment_pos);
-        }
-        s = trim(s);
-        if (s.empty())
-            continue;
-        // Check for label or address directive
-        size_t colon_pos = s.find(':');
-        if (colon_pos != string::npos) {
-            string token = trim(s.substr(0, colon_pos));
-            string rest = trim(s.substr(colon_pos + 1));
-            if (token.size() > 0) {
-                // Address directive or label
-                if ((token.size() > 1 && token[0] == '0' && token[1] == 'x') ||
-                    isdigit(token[0])) {
-                    // Address directive
-                    int64_t addr = parseNumber(token);
-                    PC = addr; // 修改: 支持地址声明
-                    // Continue to parse rest of line (if any) as instruction
-                    if (!rest.empty()) {
-                        // This rest is an instruction, so count it
-                        PC += 4;
-                    }
-                } else {
-                    // It's a label
-                    label_addr[token] = PC; // 修改: 记录标签地址
-                    // If there's code after label on same line
-                    if (!rest.empty()) {
-                        // treat 'rest' as instruction for first pass (increment
-                        // PC)
-                        PC += 4;
-                    }
-                }
+    while (getline(cin, line)) {
+        line_no++;
+        size_t pos = line.find(';');
+        if (pos != string::npos)
+            line = line.substr(0, pos);
+
+        auto trim = [](string& s) {
+            size_t a = s.find_first_not_of(" \t\r\n");
+            if (a == string::npos) {
+                s.clear();
+                return;
             }
+            size_t b = s.find_last_not_of(" \t\r\n");
+            s = s.substr(a, b - a + 1);
+        };
+        trim(line);
+        if (line.empty())
+            continue;
+
+        vector<string> tok;
+        stringstream ss(line);
+        string w;
+        while (ss >> w)
+            tok.push_back(w);
+
+        int curr_addr;
+        if (tok[0].size() > 2 && tok[0][0] == '0' && tok[0][1] == 'x') {
+            curr_addr = stoi(tok[0], nullptr, 0);
+            if (curr_addr % 4 != 0) {
+                cerr << "错误：第" << line_no << "行地址未对齐\n";
+                return 1;
+            }
+            if (used_addrs.count(curr_addr)) {
+                cerr << "错误：第" << line_no << "行地址重复\n";
+                return 1;
+            }
+            used_addrs.insert(curr_addr);
+            tok.erase(tok.begin());
+            have_prev_addr = true;
         } else {
-            // No label, just an instruction
-            PC += 4;
+            curr_addr = have_prev_addr ? (prev_addr + 4) : 0;
+            if (used_addrs.count(curr_addr)) {
+                cerr << "错误：第" << line_no << "行地址重复\n";
+                return 1;
+            }
+            used_addrs.insert(curr_addr);
+            have_prev_addr = true;
         }
-    }
+        prev_addr = curr_addr;
 
-    // Prepare output files
-    string bin_filename = output_base + ".bin";
-    string cpp_filename = output_base + ".cpp";
-    ofstream binfile(bin_filename, ios::binary);
-    ofstream cppfile(cpp_filename);
-    if (!binfile || !cppfile) {
-        cerr << "Error: cannot open output files." << endl;
-        return 1;
-    }
-
-    // Second pass: generate machine code
-    PC = 0;
-    for (auto& orig_line : lines) {
-        string s = orig_line;
-        // Remove comments
-        size_t comment_pos = s.find(';');
-        if (comment_pos != string::npos) {
-            s = s.substr(0, comment_pos);
-        }
-        s = trim(s);
-        if (s.empty())
-            continue;
-        // Check for label or address directive
-        size_t colon_pos = s.find(':');
-        if (colon_pos != string::npos) {
-            string token = trim(s.substr(0, colon_pos));
-            string rest = trim(s.substr(colon_pos + 1));
-            if (token.size() > 0) {
-                if ((token.size() > 1 && token[0] == '0' && token[1] == 'x') ||
-                    isdigit(token[0])) {
-                    // Address directive
-                    int64_t addr = parseNumber(token);
-                    PC = addr; // 修改: 支持地址声明
-                    // Continue to parse rest of line as instruction
-                    s = rest;
-                } else {
-                    // Label definition
-                    label_addr[token]; // ensure label exists
-                    s = rest;
+        string inst = tok[0];
+        uint32_t code = 0;
+        try {
+            if (inst == "lui") {
+                if (tok.size() != 3)
+                    throw runtime_error("字段数不匹配");
+                int rd = reg_idx(tok[1]);
+                int imm = stoi(tok[2], nullptr, 0);
+                code = (imm << 12) | (rd << 7) | 0x37;
+            } else if (inst == "ld") {
+                if (tok.size() != 3)
+                    throw runtime_error("字段数不匹配");
+                int rd = reg_idx(tok[1]);
+                auto p = tok[2].find('('), q = tok[2].find(')');
+                if (p == string::npos || q == string::npos)
+                    throw runtime_error("格式错误");
+                int offset = stoi(tok[2].substr(0, p), nullptr, 0);
+                int rs1 = reg_idx(tok[2].substr(p + 1, q - p - 1));
+                code =
+                    (offset << 20) | (rs1 << 15) | (3 << 12) | (rd << 7) | 0x03;
+            } else if (inst == "sd") {
+                if (tok.size() != 3)
+                    throw runtime_error("字段数不匹配");
+                int rs2 = reg_idx(tok[1]);
+                auto p = tok[2].find('('), q = tok[2].find(')');
+                if (p == string::npos || q == string::npos)
+                    throw runtime_error("格式错误");
+                int offset = stoi(tok[2].substr(0, p), nullptr, 0);
+                int rs1 = reg_idx(tok[2].substr(p + 1, q - p - 1));
+                uint32_t imm = offset & 0xFFF;
+                uint32_t imm_low = imm & 0x1F, imm_high = (imm >> 5) & 0x7F;
+                code = (imm_high << 25) | (rs2 << 20) | (rs1 << 15) |
+                       (3 << 12) | (imm_low << 7) | 0x23;
+            } else if (inst == "add" || inst == "sub" || inst == "mul" ||
+                       inst == "and" || inst == "or" || inst == "xor") {
+                if (tok.size() != 4)
+                    throw runtime_error("字段数不匹配");
+                int rd = reg_idx(tok[1]), rs1 = reg_idx(tok[2]),
+                    rs2 = reg_idx(tok[3]);
+                int funct3, funct7;
+                if (inst == "add") {
+                    funct3 = 0;
+                    funct7 = 0x00;
+                } else if (inst == "sub") {
+                    funct3 = 0;
+                    funct7 = 0x20;
+                } else if (inst == "mul") {
+                    funct3 = 0;
+                    funct7 = 0x01;
+                } else if (inst == "and") {
+                    funct3 = 7;
+                    funct7 = 0x00;
+                } else if (inst == "or") {
+                    funct3 = 6;
+                    funct7 = 0x00;
+                } else if (inst == "xor") {
+                    funct3 = 4;
+                    funct7 = 0x00;
                 }
-            }
-        }
-        s = trim(s);
-        if (s.empty())
-            continue;
-        // Now s should be an instruction
-        vector<string> tokens = split(s);
-        string op = tokens[0];
-        // Convert op to lowercase
-        for (auto& c : op)
-            c = tolower(c);
-
-        uint32_t inst = 0;
-        if (op == "add" || op == "sub" || op == "mul" || op == "div" ||
-            op == "sll" || op == "srl" || op == "and" || op == "or" ||
-            op == "xor") {
-            // R-type
-            // Syntax: add rd rs1 rs2
-            if (tokens.size() < 4) {
-                cerr << "Error: not enough operands for " << op << endl;
-                return 1;
-            }
-            int rd = parseRegister(tokens[1]);
-            int rs1 = parseRegister(tokens[2]);
-            int rs2 = parseRegister(tokens[3]);
-            if (rd < 0 || rs1 < 0 || rs2 < 0) {
-                cerr << "Error: invalid register" << endl;
-                return 1;
-            }
-            int funct3 = 0, funct7 = 0;
-            uint32_t opcode = 0x33;
-            if (op == "add") {
-                funct3 = 0x0;
-                funct7 = 0x00;
-            } else if (op == "sub") {
-                funct3 = 0x0;
-                funct7 = 0x20;
-            } else if (op == "mul") {
-                funct3 = 0x0;
-                funct7 = 0x01;
-            } else if (op == "div") {
-                funct3 = 0x4;
-                funct7 = 0x01;
-            } else if (op == "sll") {
-                funct3 = 0x1;
-                funct7 = 0x00;
-            } else if (op == "srl") {
-                funct3 = 0x5;
-                funct7 = 0x00;
-            } else if (op == "and") {
-                funct3 = 0x7;
-                funct7 = 0x00;
-            } else if (op == "or") {
-                funct3 = 0x6;
-                funct7 = 0x00;
-            } else if (op == "xor") {
-                funct3 = 0x4;
-                funct7 = 0x00;
-            }
-            inst = (funct7 << 25) | (rs2 << 20) | (rs1 << 15) | (funct3 << 12) |
-                   (rd << 7) | opcode;
-        } else if (op == "addi") {
-            // I-type: addi rd rs1 imm
-            if (tokens.size() < 4) {
-                cerr << "Error: not enough operands for addi" << endl;
-                return 1;
-            }
-            int rd = parseRegister(tokens[1]);
-            int rs1 = parseRegister(tokens[2]);
-            int imm = parseNumber(tokens[3]);
-            uint32_t opcode = 0x13;
-            uint32_t funct3 = 0x0;
-            uint32_t imm12 = imm & 0xFFF;
-            inst = (imm12 << 20) | (rs1 << 15) | (funct3 << 12) | (rd << 7) |
-                   opcode;
-        } else if (op == "ld") {
-            // I-type load: ld rd, imm(rs1)
-            if (tokens.size() < 3) {
-                cerr << "Error: not enough operands for ld" << endl;
-                return 1;
-            }
-            int rd = parseRegister(tokens[1]);
-            string mem = tokens[2];
-            if (mem.back() == ',')
-                mem.pop_back();
-            size_t lpar = mem.find('(');
-            size_t rpar = mem.find(')');
-            if (lpar == string::npos || rpar == string::npos) {
-                // maybe tokens[2]=imm, tokens[3]=reg
-                if (tokens.size() < 4) {
-                    cerr << "Error: invalid format for ld" << endl;
-                    return 1;
-                }
-                int imm = parseNumber(tokens[2]);
-                int rs1 = parseRegister(tokens[3]);
-                uint32_t opcode = 0x03;
-                uint32_t funct3 = 0x3;
-                uint32_t imm12 = imm & 0xFFF;
-                inst = (imm12 << 20) | (rs1 << 15) | (funct3 << 12) |
-                       (rd << 7) | opcode;
-            } else {
-                string imm_str = mem.substr(0, lpar);
-                string rs1_str = mem.substr(lpar + 1, rpar - lpar - 1);
-                int imm = parseNumber(imm_str);
-                int rs1 = parseRegister(rs1_str);
-                uint32_t opcode = 0x03;
-                uint32_t funct3 = 0x3; // for LD
-                uint32_t imm12 = imm & 0xFFF;
-                inst = (imm12 << 20) | (rs1 << 15) | (funct3 << 12) |
-                       (rd << 7) | opcode;
-            }
-        } else if (op == "sd") {
-            // S-type store: sd rs2, imm(rs1)
-            if (tokens.size() < 3) {
-                cerr << "Error: not enough operands for sd" << endl;
-                return 1;
-            }
-            int rs2 = parseRegister(tokens[1]);
-            string mem = tokens[2];
-            if (mem.back() == ',')
-                mem.pop_back();
-            size_t lpar = mem.find('(');
-            size_t rpar = mem.find(')');
-            if (lpar == string::npos || rpar == string::npos) {
-                if (tokens.size() < 4) {
-                    cerr << "Error: invalid format for sd" << endl;
-                    return 1;
-                }
-                int imm = parseNumber(tokens[2]);
-                int rs1 = parseRegister(tokens[3]);
-                uint32_t opcode = 0x23;
-                uint32_t funct3 = 0x3;
-                uint32_t imm12 = imm & 0xFFF;
-                uint32_t imm11_5 = (imm12 >> 5) & 0x7F;
-                uint32_t imm4_0 = imm12 & 0x1F;
-                inst = (imm11_5 << 25) | (rs2 << 20) | (rs1 << 15) |
-                       (funct3 << 12) | (imm4_0 << 7) | opcode;
-            } else {
-                string imm_str = mem.substr(0, lpar);
-                string rs1_str = mem.substr(lpar + 1, rpar - lpar - 1);
-                int imm = parseNumber(imm_str);
-                int rs1 = parseRegister(rs1_str);
-                uint32_t opcode = 0x23;
-                uint32_t funct3 = 0x3;
-                uint32_t imm12 = imm & 0xFFF;
-                uint32_t imm11_5 = (imm12 >> 5) & 0x7F;
-                uint32_t imm4_0 = imm12 & 0x1F;
-                inst = (imm11_5 << 25) | (rs2 << 20) | (rs1 << 15) |
-                       (funct3 << 12) | (imm4_0 << 7) | opcode;
-            }
-        } else if (op == "beq" || op == "blt" || op == "bge") {
-            // B-type branch: beq rs1 rs2 offset/label
-            if (tokens.size() < 4) {
-                cerr << "Error: not enough operands for " << op << endl;
-                return 1;
-            }
-            int rs1 = parseRegister(tokens[1]);
-            int rs2 = parseRegister(tokens[2]);
-            int64_t offset = 0;
-            string target = tokens[3];
-            if (target.back() == ',')
-                target.pop_back();
-            if (isalpha(target[0])) {
-                if (label_addr.find(target) == label_addr.end()) {
-                    cerr << "Error: undefined label " << target << endl;
-                    return 1;
-                }
-                int64_t targetAddr = label_addr[target];
-                offset = targetAddr - PC; // 修改: 计算相对偏移
-            } else {
-                offset = parseNumber(target) - PC;
-            }
-            int64_t imm = offset >> 1;
-            uint32_t opcode = 0x63;
-            uint32_t funct3 = 0;
-            if (op == "beq")
-                funct3 = 0x0;
-            else if (op == "blt")
-                funct3 = 0x4;
-            else if (op == "bge")
-                funct3 = 0x5;
-            uint32_t imm12 = (imm >> 11) & 0x1;
-            uint32_t imm10_5 = (imm >> 5) & 0x3F;
-            uint32_t imm4_1 = (imm >> 1) & 0xF;
-            uint32_t imm11 = (imm >> 10) & 0x1;
-            inst = (imm12 << 31) | (imm10_5 << 25) | (rs2 << 20) | (rs1 << 15) |
-                   (funct3 << 12) | (imm4_1 << 8) | (imm11 << 7) | opcode;
-        } else if (op == "jal") {
-            // J-type: jal rd offset/label
-            if (tokens.size() < 2) {
-                cerr << "Error: not enough operands for jal" << endl;
-                return 1;
-            }
-            int rd;
-            string target;
-            if (tokens.size() == 2) {
-                rd = 1; // 默认 x1
-                target = tokens[1];
-            } else {
-                rd = parseRegister(tokens[1]);
-                target = tokens[2];
-            }
-            if (target.back() == ',')
-                target.pop_back();
-            int64_t offset = 0;
-            if (isalpha(target[0])) {
-                if (label_addr.find(target) == label_addr.end()) {
-                    cerr << "Error: undefined label " << target << endl;
-                    return 1;
-                }
-                offset = label_addr[target] - PC; // 修改: 计算相对偏移
-            } else {
-                offset = parseNumber(target) - PC;
-            }
-            int64_t imm = offset >> 1;
-            uint32_t opcode = 0x6F;
-            uint32_t imm20 = (imm >> 19) & 0x1;
-            uint32_t imm10_1 = imm & 0x3FF;
-            uint32_t imm11 = (imm >> 10) & 0x1;
-            uint32_t imm19_12 = (imm >> 11) & 0xFF;
-            inst = (imm20 << 31) | (imm19_12 << 12) | (imm11 << 20) |
-                   (imm10_1 << 21) | (rd << 7) | opcode;
-        } else if (op == "jalr" || op == "jr") {
-            // I-type: jalr rd, imm(rs1) or jr label (treated as jal x0)
-            int rd = 0, rs1 = 0;
-            int64_t offset = 0;
-            if (op == "jr") {
-                // treat jr as jal x0, label
-                rd = 0;
-                string target = tokens[1];
-                if (target.back() == ',')
-                    target.pop_back();
-                if (isalpha(target[0])) {
-                    if (label_addr.find(target) == label_addr.end()) {
-                        cerr << "Error: undefined label " << target << endl;
-                        return 1;
-                    }
-                    offset = label_addr[target] - PC; // 修改: 计算相对偏移
-                } else {
-                    offset = parseNumber(target) - PC;
-                }
-            } else {
-                // jalr
-                if (tokens.size() < 3) {
-                    cerr << "Error: not enough operands for jalr" << endl;
-                    return 1;
-                }
-                string rd_str = tokens[1];
-                if (rd_str.back() == ',')
-                    rd_str.pop_back();
-                rd = parseRegister(rd_str);
-                string mem = tokens[2];
-                if (mem.back() == ',')
-                    mem.pop_back();
-                size_t lpar = mem.find('(');
-                size_t rpar = mem.find(')');
-                if (lpar == string::npos || rpar == string::npos) {
-                    cerr << "Error: invalid format for jalr" << endl;
-                    return 1;
-                }
-                string imm_str = mem.substr(0, lpar);
-                string rs1_str = mem.substr(lpar + 1, rpar - lpar - 1);
-                offset = parseNumber(imm_str);
-                rs1 = parseRegister(rs1_str);
-            }
-            uint32_t opcode = 0x67;
-            uint32_t funct3 = 0x0;
-            uint32_t imm12 = offset & 0xFFF;
-            inst = (imm12 << 20) | (rs1 << 15) | (funct3 << 12) | (rd << 7) |
-                   opcode;
-        } else if (op == "lui") {
-            // U-type: lui rd imm
-            if (tokens.size() < 3) {
-                cerr << "Error: not enough operands for lui" << endl;
-                return 1;
-            }
-            int rd = parseRegister(tokens[1]);
-            int imm = parseNumber(tokens[2]);
-            uint32_t opcode = 0x37;
-            uint32_t imm20 = (imm & 0xFFFFF) << 12;
-            inst = (imm20) | (rd << 7) | opcode;
-        } else {
-            cerr << "Error: unknown instruction " << op << endl;
+                code = (funct7 << 25) | (rs2 << 20) | (rs1 << 15) |
+                       (funct3 << 12) | (rd << 7) | 0x33;
+            } else if (inst == "beq" || inst == "blt" || inst == "bge") {
+                if (tok.size() != 4)
+                    throw runtime_error("字段数不匹配");
+                int rs1 = reg_idx(tok[1]), rs2 = reg_idx(tok[2]),
+                    target = stoi(tok[3], nullptr, 0);
+                int offset = target - curr_addr;
+                if (offset % 2 != 0)
+                    throw runtime_error("偏移地址未对齐");
+                int imm = offset & 0x1FFF;
+                int imm12 = (imm >> 12) & 1, imm11 = (imm >> 11) & 1;
+                int imm10_5 = (imm >> 5) & 0x3F, imm4_1 = (imm >> 1) & 0xF;
+                int funct3 = (inst == "beq" ? 0 : (inst == "blt" ? 4 : 5));
+                code = (imm12 << 31) | (imm10_5 << 25) | (rs2 << 20) |
+                       (rs1 << 15) | (funct3 << 12) | (imm4_1 << 8) |
+                       (imm11 << 7) | 0x63;
+            } else if (inst == "jal") {
+                if (tok.size() != 2)
+                    throw runtime_error("字段数不匹配");
+                int offset = stoi(tok[1], nullptr, 0) - curr_addr;
+                int imm = offset & 0x1FFFFF;
+                int imm20 = (imm >> 20) & 1;
+                int imm10_1 = (imm >> 1) & 0x3FF;
+                int imm11 = (imm >> 11) & 1;
+                int imm19_12 = (imm >> 12) & 0xFF;
+                int rd = 1;
+                code = (imm20 << 31) | (imm19_12 << 12) | (imm11 << 20) |
+                       (imm10_1 << 21) | (rd << 7) | 0x6F;
+            } else if (inst == "ret") {
+                code = (0 << 20) | (1 << 15) | (0 << 12) | (0 << 7) | 0x67;
+            } else if (inst == "jr") {
+                if (tok.size() != 2)
+                    throw runtime_error("字段数不匹配");
+                int imm = stoi(tok[1], nullptr, 0);
+                code = (imm << 20) | (0 << 15) | (0 << 12) | (0 << 7) | 0x67;
+            } else
+                throw runtime_error("未知指令");
+        } catch (exception& e) {
+            cerr << "错误：第" << line_no << "行：" << e.what() << '\n';
             return 1;
         }
 
-        // Write instruction to binary (big endian) and .cpp file
-        for (int i = 3; i >= 0; i--) {
-            uint8_t byte = (inst >> (i * 8)) & 0xFF;
-            binfile.put(byte);
-            cppfile << "write_byte(0x" << hex << PC << ", 0x" << (int)byte
-                    << dec << ");" << endl;
-            PC++;
-        }
+        // 写入指令（大端）
+        write_uint32_be(fout, code);
     }
 
-    binfile.close();
-    cppfile.close();
+    fout.close();
+    cout << "汇编成功，已写入: " << output_filename << '\n';
     return 0;
 }
