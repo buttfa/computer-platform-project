@@ -1,77 +1,56 @@
-#include "VPC.h" // Verilator生成的头文件
+#include "Vpc.h"
 #include "verilated.h"
 #include <cstdint>
 #include <iostream>
 
-vluint64_t sim_time = 0;
-
-class PCTester {
-  private:
-    VPC* dut;       // 被测设备实例
-    bool clk_state; // 当前时钟状态
-
-  public:
-    PCTester() : dut(new VPC), clk_state(false) {}
-
-    ~PCTester() {
-        dut->final();
-        delete dut;
-    }
-
-    // 生成时钟边沿
-    void tick() {
-        clk_state = !clk_state;
-        dut->clk = clk_state;
-        dut->eval();
-        sim_time += 5; // 模拟时间推进
-    }
-
-    // 执行完整时钟周期
-    void cycle() {
-        tick(); // 上升沿
-        tick(); // 下降沿
-    }
-
-    // 运行测试流程
-    void run() {
-        std::cout << "===== PC Test Start =====" << std::endl;
-
-        // 测试1：复位功能
-        dut->reset = 1;
-        cycle(); // 复位需要至少一个周期
-        std::cout << "[Reset] PC: 0x" << std::hex << dut->pc
-                  << " (Expected: 0x0)\n";
-        dut->reset = 0;
-
-        // 测试2：顺序执行
-        dut->sign = 0;
-        for (int i = 0; i < 3; ++i) {
-            cycle();
-            std::cout << "[Seq " << i + 1 << "] PC: 0x" << dut->pc
-                      << " (Expected: 0x" << (i + 1) * 4 << ")\n";
-        }
-
-        // 测试3：跳转功能
-        const uint64_t target = 0x1000;
-        dut->sign = 1;
-        dut->tar = target;
-        cycle();
-        std::cout << "[Jump] PC: 0x" << dut->pc << " (Expected: 0x" << target
-                  << ")\n";
-
-        // 测试4：跳转后继续顺序
-        dut->sign = 0;
-        cycle();
-        std::cout << "[PostJump] PC: 0x" << dut->pc << " (Expected: 0x"
-                  << target + 4 << ")\n";
-
-        std::cout << "===== PC Test Complete =====" << std::endl;
-    }
+struct TestCase {
+    bool reset;        // 复位信号
+    bool sign;         // 跳转控制
+    uint64_t tar;      // 目标地址
+    uint64_t expected; // 预期PC值
 };
 
 int main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
-    PCTester tester;
-    tester.run();
-    return 0;
+    VPC dut;
+    int pass_count = 0, total = 0;
+
+    // 测试用例集
+    const TestCase tests[] = {// 复位测试
+                              {1, 0, 0x0000, 0x0000},
+                              // 顺序执行测试
+                              {0, 0, 0x0000, 0x0004},
+                              {0, 0, 0x0000, 0x0008},
+                              // 跳转测试
+                              {0, 1, 0x1000, 0x1000},
+                              // 跳转后顺序执行
+                              {0, 0, 0x0000, 0x1004},
+                              // 二次复位
+                              {1, 0, 0x0000, 0x0000}};
+
+    for (const auto& t : tests) {
+        total++;
+        // 设置输入信号
+        dut->reset = t->reset;
+        dut->sign = t->sign;
+        dut->tar = t->tar;
+
+        // 生成时钟脉冲（上升沿）
+        dut->clk = 0;
+        dut->eval();
+        dut->clk = 1;
+        dut->eval();
+
+        // 结果验证
+        if (dut->pc == t->expected) {
+            pass++;
+        } else {
+            std::cout << "FAIL: reset=" << t.reset << " sign=" << t.sign
+                      << " tar=0x" << std::hex << t.tar << " got=0x" << dut.pc
+                      << " expected=0x" << t.expected << std::endl;
+        }
+    }
+
+    std::cout << "PC Test: " << pass_count << "/" << total << " pass_count\n";
+    return pass_count == total ? 0 : 1;
 }
