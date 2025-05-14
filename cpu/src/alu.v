@@ -23,7 +23,8 @@ module alu(
 // 操作码定义
 localparam [7:0]
     OP_ADD  = 8'b0000_0000,
-    OP_SUB  = OP_ADD + 1,
+    OP_ADDI = OP_ADD + 1,
+    OP_SUB  = OP_ADDI + 1,
     OP_MUL  = OP_SUB + 1,
     OP_DIV  = OP_MUL + 1,
 
@@ -32,12 +33,16 @@ localparam [7:0]
 
     OP_AND  = OP_SRL + 1,
     OP_OR   = OP_AND + 1,
-    OP_XOR  = OP_OR  + 1;
+    OP_NOT  = OP_OR  + 1,
+    OP_XOR  = OP_NOT + 1,
+    
+    OP_LUI  = OP_XOR + 1;
 
 always @(posedge clk) begin
     if (en) begin
         case(opcode)
             OP_ADD:  result = operand1 + operand2;
+            OP_ADDI: result = operand1 + operand2;
             OP_SUB:  result = operand1 - operand2;
             OP_MUL:  result = operand1 * operand2;
             OP_DIV:  result = operand1 / operand2;
@@ -45,10 +50,12 @@ always @(posedge clk) begin
             OP_SLL:  result = operand1 << operand2[5:0];  // 移位量取低6位
             OP_SRL:  result = operand1 >> operand2[5:0];
             
-
             OP_AND:  result = operand1 & operand2;
             OP_OR:   result = operand1 | operand2;
+            OP_NOT:  result = ~(operand1);
             OP_XOR:  result = operand1 ^ operand2;
+
+            OP_LUI:  result = operand2<<12;
 
             default: result = 64'b0;
         endcase

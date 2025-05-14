@@ -4,6 +4,7 @@
 
 enum ALU_OP {
     ALU_OP_ADD,
+    ALU_OP_ADDI,
     ALU_OP_SUB,
     ALU_OP_MUL,
     ALU_OP_DIV,
@@ -13,7 +14,10 @@ enum ALU_OP {
 
     ALU_OP_AND,
     ALU_OP_OR,
+    ALU_OP_NOT,
     ALU_OP_XOR,
+
+    ALU_OP_LUI
 };
 
 uint64_t alu_verilog(Valu* alu, uint8_t op, uint64_t a, uint64_t b) {
@@ -36,22 +40,31 @@ uint64_t alu_cpp(uint8_t op, uint64_t a, uint64_t b) {
     switch (op) {
     case ALU_OP_ADD:
         return a + b;
+    case ALU_OP_ADDI:
+        return a + b;
     case ALU_OP_SUB:
         return a - b;
     case ALU_OP_MUL:
         return a * b;
     case ALU_OP_DIV:
         return b != 0 ? a / b : 0;
+
     case ALU_OP_SLL:
         return a << (b & 0x3F); // 取低6位
     case ALU_OP_SRL:
         return a >> (b & 0x3F); // 取低6位
+
     case ALU_OP_AND:
         return a & b;
     case ALU_OP_OR:
         return a | b;
+    case ALU_OP_NOT:
+        return ~a;
     case ALU_OP_XOR:
         return a ^ b;
+
+    case ALU_OP_LUI:
+        return b << 12;
     default:
         return 0;
     }
@@ -69,11 +82,16 @@ int main() {
 
     // 测试用例数组 {op, a, b}
     const OP TestCases[] = {
-        {ALU_OP_ADD, 0x1234, 0x5678}, {ALU_OP_SUB, 100, 30},
-        {ALU_OP_MUL, 15, 20},         {ALU_OP_DIV, 200, 50},
+        {ALU_OP_ADD, 0x1234, 0x5678}, {ALU_OP_ADDI, 0x1234, 0x8},
+        {ALU_OP_SUB, 100, 30},        {ALU_OP_MUL, 15, 20},
+        {ALU_OP_DIV, 200, 50},
+
         {ALU_OP_SLL, 0x1, 4},         {ALU_OP_SRL, 0x80, 3},
+
         {ALU_OP_AND, 0xFF, 0x0F},     {ALU_OP_OR, 0xF0, 0x0F},
-        {ALU_OP_XOR, 0xAA, 0x55}};
+        {ALU_OP_NOT, 0xFF1C, 0},      {ALU_OP_XOR, 0xAA, 0x55},
+
+        {ALU_OP_LUI, 0, 0x5678}};
 
     for (const auto& test : TestCases) {
         test_count++;
