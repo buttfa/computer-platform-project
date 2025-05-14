@@ -12,7 +12,8 @@ struct TestCase {
 
 int main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
-    VPC dut;
+    Vpc dut;
+    dut.en = 1;
     int pass_count = 0, total = 0;
 
     // 测试用例集
@@ -31,23 +32,24 @@ int main(int argc, char** argv) {
     for (const auto& t : tests) {
         total++;
         // 设置输入信号
-        dut->reset = t->reset;
-        dut->sign = t->sign;
-        dut->tar = t->tar;
+        dut.reset = t.reset;
+        dut.sign = t.sign;
+        dut.tar = t.tar;
 
         // 生成时钟脉冲（上升沿）
-        dut->clk = 0;
-        dut->eval();
-        dut->clk = 1;
-        dut->eval();
+        dut.clk = 0;
+        dut.eval();
+        dut.clk = 1;
+        dut.eval();
 
         // 结果验证
-        if (dut->pc == t->expected) {
-            pass++;
+        if (dut.pc_addr == t.expected) {
+            pass_count++;
         } else {
             std::cout << "FAIL: reset=" << t.reset << " sign=" << t.sign
-                      << " tar=0x" << std::hex << t.tar << " got=0x" << dut.pc
-                      << " expected=0x" << t.expected << std::endl;
+                      << " tar=0x" << std::hex << t.tar << " got=0x"
+                      << dut.pc_addr << " expected=0x" << t.expected
+                      << std::endl;
         }
     }
 
