@@ -32,19 +32,27 @@ module cpu (
 
     pc pc_inst(
         .clk(clk),
+        .en(pc_en),
         .reset(reset),
-        .pc(pc_addr),
-        .branch(branch),
-        .alu_result(alu_result)
+        .tar(pc_in_dir==1'b0 && instr_raw[31]==1'b0 ? pc_addr+{44'b0, instr_raw[31:12]} :
+            pc_in_dir==1'b0 && instr_raw[31]==1'b1 ? pc_addr+{44{1'b1}, instr_raw[31:12]} :
+
+            pc_in_dir==1'b1 && instr_raw[31]==1'b0 ? reg_data1+{44'b0, instr_raw[31:20]} : 
+            pc_in_dir==1'b1 && instr_raw[31]==1'b1 ? reg_data1+{44{1'b1}, instr_raw[31:20]}
+        ),
+        .sign(pc_sign),
+        .pc(pc_addr)
     );
 
     ir ir_inst(
         .clk(clk),
-        .instr_in(bus_data),
+        .en(ir_en),
+        .instr_in(bus_data[63:32]), // 将bus_data的高32位作为指令输出
         .instr_out(instr_raw)
     );
 
     control_unit ctrl_inst(
+        .clk(clk),
         // 根据instr_raw，控制各个模块的使能信号
         .instr(instr_raw),
 
