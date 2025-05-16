@@ -20,11 +20,14 @@ module cpu (
     wire [31:0] instr_raw;
     
     // 寄存器文件相关
+    wire reg_en;
     wire [4:0] rs1, rs2, rd; // 寄存器索引
     wire [63:0] reg_data1, reg_data2; // rs1和rs2的值
     wire reg_we;
+    wire reg_in_dir;
     
     // ALU相关
+    wire alu_en;
     wire [63:0] alu_result;
     wire [7:0] alu_op;
     wire [1:0] op2_dir;
@@ -32,9 +35,6 @@ module cpu (
     
     // 立即数生成
     wire [63:0] imm_value;
-    
-    // 控制信号
-    wire reg_in_dir;
 
     pc pc_inst(
         .clk(clk),
@@ -43,8 +43,8 @@ module cpu (
         .tar(pc_in_dir==1'b0 && instr_raw[31]==1'b0 ? pc_addr+{{44{1'b0}}, instr_raw[31:12]} :
             pc_in_dir==1'b0 && instr_raw[31]==1'b1 ? pc_addr+{{44{1'b1}}, instr_raw[31:12]} :
 
-            pc_in_dir==1'b1 && instr_raw[31]==1'b0 ? reg_data1+{{44{1'b0}}, instr_raw[31:20]} : 
-            pc_in_dir==1'b1 && instr_raw[31]==1'b1 ? reg_data1+{{44{1'b1}}, instr_raw[31:20]} :
+            pc_in_dir==1'b1 && instr_raw[31]==1'b0 ? reg_data1+{{52{1'b0}}, instr_raw[31:20]} : 
+            pc_in_dir==1'b1 && instr_raw[31]==1'b1 ? reg_data1+{{52{1'b1}}, instr_raw[31:20]} :
             64'bZ
         ),
         .sign(pc_sign),
@@ -58,21 +58,21 @@ module cpu (
         .instr_out(instr_raw)
     );
 
-    regfile regfile_inst(
-        .clk(clk),
-        .en(reg_en),
+    // regfile regfile_inst(
+    //     .clk(clk),
+    //     .en(reg_en),
         
-        .rd(instr_raw[11:7]), // 寄存器索引
-        .rs1(instr_raw[19:15]),
-        .rs2(instr_raw[24:20]),
+    //     .rd(instr_raw[11:7]), // 寄存器索引
+    //     .rs1(instr_raw[19:15]),
+    //     .rs2(instr_raw[24:20]),
 
-        .data1(reg_data1), // 输出rs1和rs2寄存器的值
-        .data2(reg_data2),
+    //     .data1(reg_data1), // 输出rs1和rs2寄存器的值
+    //     .data2(reg_data2),
 
-        .we(reg_we), // 写输入数据到rd寄存器
-        // rd寄存器的值，只可能来自ALU/RAM
-        .write_data(reg_in_dir ? bus_data : alu_result)
-    );
+    //     .we(reg_we), // 写输入数据到rd寄存器
+    //     // rd寄存器的值，只可能来自ALU/RAM
+    //     .write_data(reg_in_dir ? bus_data : alu_result)
+    // );
 
     // 向数据总线写数据，ram信号由controller控制
     assign bus_addr = 
@@ -80,12 +80,12 @@ module cpu (
     (ram_cs && ram_oe && pc_en) ? pc_addr : 
     
     // 从ram的x[rs1]+sign-extend(offset)地址出读取8个字节的数据到x[rd]   ld指令
-    (ram_cs && ram_oe && reg_en && instr_raw[31]==1'b0) ? reg_addr1+{{52{1'b0}}, instr_raw[31:20]} : 
-    (ram_cs && ram_oe && reg_en && instr_raw[31]==1'b1) ? reg_addr1+{{52{1'b1}}, instr_raw[31:20]} :
+    (ram_cs && ram_oe && reg_en && instr_raw[31]==1'b0) ? reg_data1+{{52{1'b0}}, instr_raw[31:20]} : 
+    (ram_cs && ram_oe && reg_en && instr_raw[31]==1'b1) ? reg_data1+{{52{1'b1}}, instr_raw[31:20]} :
     
     // 将x[rs2]写入ram的x[rs1]+sign-extend(offset)地址   sd指令
-    (ram_cs && ram_we && reg_en && instr_raw[31]==1'b0) ? reg_addr1+{{52{1'b0}}, instr_raw[31:25], instr_raw[11:7]} : 
-    (ram_cs && ram_we && reg_en && instr_raw[31]==1'b1) ? reg_addr1+{{52{1'b1}}, instr_raw[31:25], instr_raw[11:7]} : 
+    (ram_cs && ram_we && reg_en && instr_raw[31]==1'b0) ? reg_data1+{{52{1'b0}}, instr_raw[31:25], instr_raw[11:7]} : 
+    (ram_cs && ram_we && reg_en && instr_raw[31]==1'b1) ? reg_data1+{{52{1'b1}}, instr_raw[31:25], instr_raw[11:7]} : 
     64'bZ;
     assign bus_data = (ram_cs && ram_we) ? reg_data2 : 64'bZ;
 
@@ -124,13 +124,14 @@ module cpu (
         // ir的控制信号
         .ir_en(ir_en),
 
-        // 寄存器输入来源
+        // regfile的控制信号
         .reg_en(reg_en),
         .reg_we(reg_we),
         .reg_in_dir(reg_in_dir),
 
-        // alu操作码
+        // alu的控制信号
         .alu_en(alu_en),
-        .alu_op(alu_op)
+        .alu_op(alu_op),
+        .op2_dir(op2_dir)
     );
 endmodule
