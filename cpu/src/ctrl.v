@@ -39,7 +39,12 @@ module ctrl (
         /* ADDI_S1状态：  控制alu进行x[rs1]+setx(imm)的计算 */
         ADDI_S1 = ADD_S2+1,
         /* ADDI_S2状态：  将ADDI_S1状态中计算的结果写入到x[rd] */
-        ADDI_S2 = ADDI_S1+1;
+        ADDI_S2 = ADDI_S1+1,
+
+        /* SUB_S1状态：   控制alu进行x[rs1]-x[rs2]的计算 */
+        SUB_S1  = ADDI_S2+1,
+        /* SUB_S2状态：   将SUB_S1状态中计算的结果写入到x[rd] */
+        SUB_S2  = SUB_S1+1;
 
 localparam [7:0]
     OP_ADD  = 8'b0000_0000,
@@ -70,11 +75,16 @@ localparam [7:0]
             S1: next_state = S2;
             S2:
             // 根据指令内容确定之后执行的内容
+            // ADDI指令
             if (instr[14:12] == 3'b000 && instr[6:0] == 7'b0010011) begin
                 next_state = ADDI_S1;
             end 
+            // ADD指令
             else if (instr[31:25] == 7'b0 && instr[14:12] == 3'b0 && instr[6:0] == 7'b0110011) begin
                 next_state = ADD_S1;
+            end
+            else if (instr[31:25] == 7'b0100000 && instr[14:12] == 3'b0 && instr[6:0] == 7'b0110011) begin
+                next_state = SUB_S1;
             end
             else begin
                 next_state = S1;
@@ -87,6 +97,10 @@ localparam [7:0]
             /* ADDI指令的状态转移 */
             ADDI_S1: next_state = ADDI_S2;
             ADDI_S2: next_state = S1;
+
+            /* SUB指令的状态转移 */
+            SUB_S1: next_state = SUB_S2;
+            SUB_S2: next_state = S1;
         endcase
     end
 
@@ -168,6 +182,26 @@ localparam [7:0]
             end
             /* ADDI指令 */
 
+            /* SUB指令 */
+            SUB_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // SUB_S1状态启用
+                alu_op = OP_SUB;
+                op2_dir = 2'b00;
+                alu_en = 1'b1;
+            end
+            SUB_S2: begin
+                // SUB_S2状态启用
+                reg_in_dir = 1'b0;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+                // SUB_S1状态复位
+                alu_op = 8'b0;
+                op2_dir  = 2'b00;
+                alu_en = 1'b0;
+            end
+            /* SUB指令 */
         endcase
     end
     
