@@ -32,9 +32,6 @@ module cpu (
     wire [7:0] alu_op;
     wire [1:0] op2_dir;
     wire alu_zero;
-    
-    // 立即数生成
-    wire [63:0] imm_value;
 
     pc pc_inst(
         .clk(clk),
@@ -52,7 +49,6 @@ module cpu (
     );
 
     ir ir_inst(
-        .clk(clk),
         .en(ir_en),
         .instr_in(bus_data[63:32]), // 将bus_data的高32位作为指令缓存
         .instr_out(instr_raw)

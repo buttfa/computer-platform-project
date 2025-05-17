@@ -15,12 +15,11 @@ namespace ram {
  * @param data 需要写入的数据
  */
 inline void write_64bits(Vram* ram, uint64_t addr, uint64_t data) {
-    /* 初始化时钟信号 */
-    ram->clk = 0;
+    /* 初始化使能信号 */
+    ram->cs = 0;
     ram->eval();
 
     /* 设置写入标志位  */
-    ram->cs = 1;
     ram->we = 1;
     ram->oe = 0;
 
@@ -28,10 +27,10 @@ inline void write_64bits(Vram* ram, uint64_t addr, uint64_t data) {
     ram->addr = addr; // 目标地址值
     ram->data = data; // 要写入的数据
 
-    /* 产生上升时钟沿 */
-    ram->clk = 1;
+    /* 产生上升使能沿 */
+    ram->cs = 0;
     ram->eval();
-    ram->clk = 0;
+    ram->cs = 1;
     ram->eval();
 
     /* 禁用所有标志位 */
@@ -48,12 +47,11 @@ inline void write_64bits(Vram* ram, uint64_t addr, uint64_t data) {
  * @return uint64_t 读取的数据
  */
 inline uint64_t read_64bits(Vram* ram, uint32_t addr) {
-    /* 初始化时钟信号 */
-    ram->clk = 0;
+    /* 初始化使能信号 */
+    ram->cs = 0;
     ram->eval();
 
     /* 设置读取标志位  */
-    ram->cs = 1;
     ram->we = 0; // 写标志位禁用
     ram->oe = 1; // 读标志位使能
 
@@ -61,9 +59,9 @@ inline uint64_t read_64bits(Vram* ram, uint32_t addr) {
     ram->addr = addr;
 
     /* 产生上升时钟沿 */
-    ram->clk = 1;
+    ram->cs = 0;
     ram->eval();
-    ram->clk = 0;
+    ram->cs = 1;
     ram->eval();
 
     /* 读取数据 */
