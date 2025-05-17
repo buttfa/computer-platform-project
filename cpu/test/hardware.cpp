@@ -24,6 +24,9 @@ int main() {
     /* mul x3 x2 x2 */
     instr = (uint64_t)0b00000010001000010000000110110011 << 32;
     hardware::write_64bits(&hardware, 0x0C, instr);
+    /* div x4 x3 x2 */
+    instr = (uint64_t)0b00000010001000011100001000110011 << 32;
+    hardware::write_64bits(&hardware, 0x10, instr);
 
     hardware.clk = 1;
     for (int i = 0; i < 100; i++) {
