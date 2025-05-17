@@ -54,21 +54,20 @@ module cpu (
         .instr_out(instr_raw)
     );
 
-    // regfile regfile_inst(
-    //     .clk(clk),
-    //     .en(reg_en),
+    regfile regfile_inst(
+        .en(reg_en),
         
-    //     .rd(instr_raw[11:7]), // 寄存器索引
-    //     .rs1(instr_raw[19:15]),
-    //     .rs2(instr_raw[24:20]),
+        .rd(instr_raw[11:7]), // 寄存器索引
+        .rs1(instr_raw[19:15]),
+        .rs2(instr_raw[24:20]),
 
-    //     .data1(reg_data1), // 输出rs1和rs2寄存器的值
-    //     .data2(reg_data2),
+        .data1(reg_data1), // 输出rs1和rs2寄存器的值
+        .data2(reg_data2),
 
-    //     .we(reg_we), // 写输入数据到rd寄存器
-    //     // rd寄存器的值，只可能来自ALU/RAM
-    //     .write_data(reg_in_dir ? bus_data : alu_result)
-    // );
+        .we(reg_we), // 写输入数据到rd寄存器
+        // rd寄存器的值，只可能来自ALU/RAM
+        .write_data(reg_in_dir ? bus_data : alu_result)
+    );
 
     // 向数据总线写数据，ram信号由controller控制
     assign bus_addr = 
