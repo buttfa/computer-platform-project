@@ -86,7 +86,6 @@ module cpu (
 
     // alu 只对来自寄存器的数据/立即数进行运算
     alu alu_inst(
-        .clk(clk),
         .en(alu_en),
         .opcode(alu_op),
         .operand1(reg_data1), // 操作数1,只会是寄存器rs1的值

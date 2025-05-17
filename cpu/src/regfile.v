@@ -24,13 +24,6 @@ module regfile (
     // 寄存器堆定义（x0恒为0）
     reg [63:0] registers [31:0];
 
-    // 初始化所有寄存器（包括x0）
-    integer i;
-    initial begin
-        for (i = 0; i < 32; i = i + 1)
-            registers[i] = 64'b0;
-    end
-
     // 写操作由en上升沿触发
     always @(posedge en) begin 
         if (we && rd != 5'b0) begin

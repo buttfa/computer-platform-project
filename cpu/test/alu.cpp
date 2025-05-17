@@ -25,12 +25,11 @@ uint64_t alu_verilog(Valu* alu, uint8_t op, uint64_t a, uint64_t b) {
     alu->opcode = op;
     alu->operand1 = a;
     alu->operand2 = b;
-    alu->en = 1;
 
-    // 仿真时钟触发
-    alu->clk = 0;
+    // 仿真使能触发
+    alu->en = 0;
     alu->eval();
-    alu->clk = 1;
+    alu->en = 1;
     alu->eval();
 
     return alu->result;

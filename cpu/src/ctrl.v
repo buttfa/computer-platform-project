@@ -24,9 +24,34 @@ module ctrl (
     reg [7:0] next_state;
 
     parameter 
+        /* PREPARE状态：  用于初始化cpu中部件的控制信号 */
         PREPARE = 8'b0,
+        /* S1状态：       从Ram中读取指令 */
         S1      = PREPARE+1,
-        S2      = S1+1;
+        /* S2状态：       将S1状态中读取的指令写入到IR */
+        S2      = S1+1,
+
+        /* ADDI_S1状态：  控制alu进行x[rs1]+setx(imm)的计算 */
+        ADDI_S1 = S2+1,
+        /* ADDI_S2状态：  将ADDI_S1状态中计算的结果写入到x[rd] */
+        ADDI_S2 = ADDI_S1+1;
+
+localparam [7:0]
+    OP_ADD  = 8'b0000_0000,
+    OP_ADDI = OP_ADD + 1,
+    OP_SUB  = OP_ADDI + 1,
+    OP_MUL  = OP_SUB + 1,
+    OP_DIV  = OP_MUL + 1,
+
+    OP_SLL  = OP_DIV + 1,
+    OP_SRL  = OP_SLL + 1,
+
+    OP_AND  = OP_SRL + 1,
+    OP_OR   = OP_AND + 1,
+    OP_NOT  = OP_OR  + 1,
+    OP_XOR  = OP_NOT + 1,
+    
+    OP_LUI  = OP_XOR + 1;
 
     // 更新状态
     always @(posedge clk) begin
@@ -38,25 +63,41 @@ module ctrl (
         case (state)
             PREPARE: next_state = S1;
             S1: next_state = S2;
-            S2: next_state = S1;
+            S2:
+            // 根据指令内容确定之后执行的内容
+            if (instr[14:12] == 3'b000 && instr[6:0] == 7'b0010011) begin
+                next_state = ADDI_S1;
+            end else begin
+                next_state = S1;
+            end
+
+            /* ADDI指令的状态转移 */
+            ADDI_S1: next_state = ADDI_S2;
+            ADDI_S2: next_state = S1;
         endcase
     end
 
     // 执行状态操作
     always @(*) begin
         case (state)
-            // PERPARE: 准备状态
             PREPARE: begin
             end
 
-            // S1: 读指令并且PC+=4
             S1: begin
-                // 所有状态复位
+                // 所有控制信号的复位
                 ram_cs = 1'b0;
+                ram_we = 1'b0;
                 ram_oe = 1'b0;
                 pc_en = 1'b0;
+                pc_in_dir = 1'b0;
+                pc_sign = 1'b0;
                 ir_en = 1'b0;
-
+                reg_en = 1'b0;
+                reg_we  = 1'b0;
+                reg_in_dir = 1'b0;
+                alu_en = 1'b0;
+                alu_op  = 8'b0;
+                op2_dir = 2'b00;
                 // S1状态启用
                 ram_cs = 1'b1;
                 ram_oe = 1'b1;
@@ -71,6 +112,26 @@ module ctrl (
                 // S2状态启用
                 ir_en = 1'b1;
             end
+
+            ADDI_S1: begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // ADDI_S1状态启用
+                alu_op = OP_ADDI;
+                op2_dir = 2'b10;
+                alu_en = 1'b1;
+            end
+            ADDI_S2: begin
+                // ADDI_S2状态启用
+                reg_in_dir = 1'b0;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+                // ADDI_S1状态复位
+                alu_op = 8'b0;
+                op2_dir  = 2'b0;
+                alu_en = 1'b0;
+            end
+
         endcase
     end
     
