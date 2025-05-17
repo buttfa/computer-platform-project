@@ -44,7 +44,12 @@ module ctrl (
         /* SUB_S1状态：   控制alu进行x[rs1]-x[rs2]的计算 */
         SUB_S1  = ADDI_S2+1,
         /* SUB_S2状态：   将SUB_S1状态中计算的结果写入到x[rd] */
-        SUB_S2  = SUB_S1+1;
+        SUB_S2  = SUB_S1+1,
+
+        /* MUL_S1状态：   控制alu进行x[rs1]*x[rs2]的计算 */
+        MUL_S1 = SUB_S2+1,
+        /* MUL_S2状态：   将MUL_S1状态中计算的结果写入到x[rd] */
+        MUL_S2 = MUL_S1+1;
 
 localparam [7:0]
     OP_ADD  = 8'b0000_0000,
@@ -83,8 +88,13 @@ localparam [7:0]
             else if (instr[31:25] == 7'b0 && instr[14:12] == 3'b0 && instr[6:0] == 7'b0110011) begin
                 next_state = ADD_S1;
             end
+            // SUB指令
             else if (instr[31:25] == 7'b0100000 && instr[14:12] == 3'b0 && instr[6:0] == 7'b0110011) begin
                 next_state = SUB_S1;
+            end
+            // MUL指令
+            else if (instr[31:25] == 7'b0000001 && instr[14:12] == 3'b0 && instr[6:0] == 7'b0110011) begin
+                next_state = MUL_S1;
             end
             else begin
                 next_state = S1;
@@ -101,6 +111,10 @@ localparam [7:0]
             /* SUB指令的状态转移 */
             SUB_S1: next_state = SUB_S2;
             SUB_S2: next_state = S1;
+
+            /* MUL指令的状态转移 */
+            MUL_S1: next_state = MUL_S2;
+            MUL_S2: next_state = S1;
         endcase
     end
 
@@ -202,6 +216,27 @@ localparam [7:0]
                 alu_en = 1'b0;
             end
             /* SUB指令 */
+
+            /* MUL指令 */
+            MUL_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // MUL_S1状态启用
+                alu_op = OP_MUL;
+                op2_dir = 2'b00;
+                alu_en = 1'b1;
+            end
+            MUL_S2: begin
+                // MUL_S2状态启用
+                reg_in_dir = 1'b0;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+                // MUL_S1状态复位
+                alu_op = 8'b0;
+                op2_dir  = 2'b00;
+                alu_en = 1'b0;
+            end
+            /* MUL指令 */
         endcase
     end
     
