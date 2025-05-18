@@ -11,7 +11,7 @@ module cpu (
 
     // 程序计数器相关
     wire pc_en;
-    wire pc_in_dir;
+    wire [1:0] pc_in_dir;
     wire pc_sign;
     wire [63:0] pc_addr;
 
@@ -37,12 +37,16 @@ module cpu (
         .clk(clk),
         .en(pc_en),
         .reset(1'b0),
-        .tar(pc_in_dir==1'b0 && instr_raw[31]==1'b0 ? pc_addr+{{44{1'b0}}, instr_raw[31:12]} :
-            pc_in_dir==1'b0 && instr_raw[31]==1'b1 ? pc_addr+{{44{1'b1}}, instr_raw[31:12]} :
-
-            pc_in_dir==1'b1 && instr_raw[31]==1'b0 ? reg_data1+{{52{1'b0}}, instr_raw[31:20]} : 
-            pc_in_dir==1'b1 && instr_raw[31]==1'b1 ? reg_data1+{{52{1'b1}}, instr_raw[31:20]} :
-            64'bZ
+        .tar(
+            // jal
+            pc_in_dir==2'b01 ? pc_addr+{{44{instr_raw[31]}}, instr_raw[31:12]} :
+            // jalr
+            pc_in_dir==2'b10 ? reg_data1+{{52{instr_raw[31]}}, instr_raw[31:20]} : 
+            // beq
+            pc_in_dir==2'b00 && alu_result == 64'b0 ? pc_addr+{{52{instr_raw[31]}}, {instr_raw[31],instr_raw[7],instr_raw[30:25],instr_raw[11:8]}} :
+            // bge
+            pc_in_dir==2'b11 && alu_result[63] == 1'b0 ? pc_addr+{{52{instr_raw[31]}}, {instr_raw[31],instr_raw[7],instr_raw[30:25],instr_raw[11:8]}} :
+            pc_addr + 64'b0
         ),
         .sign(pc_sign),
         .pc_addr(pc_addr)

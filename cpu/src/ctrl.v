@@ -7,7 +7,7 @@ module ctrl (
     output reg ram_oe,
 
     output reg pc_en,
-    output reg pc_in_dir,
+    output reg [1:0] pc_in_dir,
     output reg pc_sign,
 
     output reg ir_en,
@@ -184,7 +184,7 @@ localparam [7:0]
                 ram_we = 1'b0;
                 ram_oe = 1'b0;
                 pc_en = 1'b0;
-                pc_in_dir = 1'b0;
+                pc_in_dir = 2'b0;
                 pc_sign = 1'b0;
                 ir_en = 1'b0;
                 reg_en = 1'b0;
