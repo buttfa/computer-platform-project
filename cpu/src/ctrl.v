@@ -54,7 +54,12 @@ module ctrl (
         /* DIV_S1状态：   控制alu进行x[rs1]/x[rs2]计算，其中商的结果向0舍入 */
         DIV_S1 = MUL_S2+1,
         /* DIV_S2状态：   将DIV_S1状态中计算的结果写入到x[rd] */
-        DIV_S2 = DIV_S1+1;
+        DIV_S2 = DIV_S1+1,
+
+        /* SLL_S1状态：   控制alu进行x[rs1]<<x[rs2]的计算 */
+        SLL_S1 = DIV_S2+1,
+        /* SLL_S2状态：   将SLL_S1状态中计算结果写入到x[rd] */
+        SLL_S2 = SLL_S1+1;
 
 localparam [7:0]
     OP_ADD  = 8'b0000_0000,
@@ -105,6 +110,10 @@ localparam [7:0]
             else if (instr[31:25] == 7'b0000001 && instr[14:12] == 3'b100 && instr[6:0] == 7'b0110011) begin
                 next_state = DIV_S1;
             end
+            // SLL指令
+            else if (instr[31:25] == 7'b0 && instr[14:12] == 3'b001 && instr[6:0] == 7'b0110011) begin
+                next_state = SLL_S1;
+            end
             else begin
                 next_state = S1;
             end
@@ -128,6 +137,10 @@ localparam [7:0]
             /* DIV指令的状态转移 */
             DIV_S1: next_state = DIV_S2;
             DIV_S2: next_state = S1;
+
+            /* SLL指令的状态转移 */
+            SLL_S1: next_state = SLL_S2;
+            SLL_S2: next_state = S1;
         endcase
     end
 
@@ -271,6 +284,27 @@ localparam [7:0]
                 alu_en = 1'b0;
             end
             /* DIV指令 */
+
+            /* SLL指令 */
+            SLL_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // SLL_S1状态启用
+                alu_op = OP_SLL;
+                op2_dir = 2'b00;
+                alu_en = 1'b1;
+            end
+            SLL_S2: begin
+                // SLL_S2状态启用
+                reg_in_dir = 1'b0;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+                // SLL_S1状态复位
+                alu_op = 8'b0;
+                op2_dir  = 2'b00;
+                alu_en = 1'b0;
+            end
+            /* SLL指令 */
         endcase
     end
     

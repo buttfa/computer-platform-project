@@ -12,21 +12,24 @@ int main() {
 
     uint64_t instr = 0;
 
-    /* addi x1 x1 1 */
+    /* addi x1 x1 1 ; x1==1 */
     instr = (uint64_t)0b00000000000100001000000010010011 << 32;
     hardware::write_64bits(&hardware, 0x00, instr);
-    /* add x2 x1 x1 */
+    /* add x2 x1 x1 ; x2==2*/
     instr = (uint64_t)0b00000000000100001000000100110011 << 32;
     hardware::write_64bits(&hardware, 0x04, instr);
-    /* sub x3 x2 x1 */
+    /* sub x3 x2 x1 ; x3==1*/
     instr = (uint64_t)0b01000000000100010000000110110011 << 32;
     hardware::write_64bits(&hardware, 0x08, instr);
-    /* mul x3 x2 x2 */
+    /* mul x3 x2 x2 ; x3==4*/
     instr = (uint64_t)0b00000010001000010000000110110011 << 32;
     hardware::write_64bits(&hardware, 0x0C, instr);
-    /* div x4 x3 x2 */
+    /* div x4 x3 x2 ; x4==2*/
     instr = (uint64_t)0b00000010001000011100001000110011 << 32;
     hardware::write_64bits(&hardware, 0x10, instr);
+    /* sll x1 x1 x1 ; x1==2*/
+    instr = (uint64_t)0b00000000000100001001000010110011 << 32;
+    hardware::write_64bits(&hardware, 0x14, instr);
 
     hardware.clk = 1;
     for (int i = 0; i < 100; i++) {
