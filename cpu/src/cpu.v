@@ -79,12 +79,10 @@ module cpu (
     (ram_cs && ram_oe && pc_en) ? pc_addr : 
     
     // 从ram的x[rs1]+sign-extend(offset)地址出读取8个字节的数据到x[rd]   ld指令
-    (ram_cs && ram_oe && reg_en && instr_raw[31]==1'b0) ? reg_data1+{{52{1'b0}}, instr_raw[31:20]} : 
-    (ram_cs && ram_oe && reg_en && instr_raw[31]==1'b1) ? reg_data1+{{52{1'b1}}, instr_raw[31:20]} :
+    (ram_cs && ram_oe && reg_en) ? reg_data1+{{52{instr_raw[31]}}, instr_raw[31:20]} : 
     
     // 将x[rs2]写入ram的x[rs1]+sign-extend(offset)地址   sd指令
-    (ram_cs && ram_we && reg_en && instr_raw[31]==1'b0) ? reg_data1+{{52{1'b0}}, instr_raw[31:25], instr_raw[11:7]} : 
-    (ram_cs && ram_we && reg_en && instr_raw[31]==1'b1) ? reg_data1+{{52{1'b1}}, instr_raw[31:25], instr_raw[11:7]} : 
+    (ram_cs && ram_we && reg_en) ? reg_data1+{{52{instr_raw[31]}}, instr_raw[31:25], instr_raw[11:7]} : 
     64'bZ;
     assign bus_data = (ram_cs && ram_we) ? reg_data2 : 64'bZ;
 
@@ -95,11 +93,9 @@ module cpu (
         .operand1(reg_data1), // 操作数1,只会是寄存器rs1的值
         .operand2((op2_dir == 2'b00) ? reg_data2 :
                   // 来自 lui
-                  (op2_dir == 2'b01 && instr_raw[31]==1'b0) ? {{44{1'b0}}, instr_raw[31:12]} :
-                  (op2_dir == 2'b01 && instr_raw[31]==1'b1) ? {{44{1'b1}}, instr_raw[31:12]} :
+                  (op2_dir == 2'b01) ? {{44{instr_raw[31]}}, instr_raw[31:12]} :
                   // 来自 addi
-                  (op2_dir == 2'b10 && instr_raw[31]==1'b0) ? {{52{1'b0}}, instr_raw[31:20]} : 
-                  (op2_dir == 2'b10 && instr_raw[31]==1'b1) ? {{52{1'b1}}, instr_raw[31:20]} :
+                  (op2_dir == 2'b10) ? {{52{instr_raw[31]}}, instr_raw[31:20]} : 
                   64'bZ), // 操作数2,可能是寄存器rs2的值，也可能是立即数
         .result(alu_result)
     );
