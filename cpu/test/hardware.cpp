@@ -30,6 +30,9 @@ int main() {
     /* sll x1 x1 x1 ; x1==2*/
     instr = (uint64_t)0b00000000000100001001000010110011 << 32;
     hardware::write_64bits(&hardware, 0x14, instr);
+    /* srl x1 x1 x1 ; x1==0*/
+    instr = (uint64_t)0b00000000000100001101000010110011 << 32;
+    hardware::write_64bits(&hardware, 0x18, instr);
 
     hardware.clk = 1;
     for (int i = 0; i < 100; i++) {
