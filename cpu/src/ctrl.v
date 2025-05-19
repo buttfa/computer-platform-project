@@ -69,7 +69,12 @@ module ctrl (
         /* LUI_S1状态：   控制alu进行sext(imm[31:12])<<12的计算 */
         LUI_S1 = SRL_S2+1,
         /* LUI_S2状态：   将LUI_S1状态中计算结果写入到x[rd] */
-        LUI_S2 = LUI_S1+1;
+        LUI_S2 = LUI_S1+1,
+
+        /* OR_S1状态：   控制alu进行x[rs1]|x[rs2]的计算 */
+        OR_S1 = LUI_S2+1,
+        /* OR_S2状态：   将OR_S1状态中计算结果写入到x[rd] */
+        OR_S2 = OR_S1+1;
 
 localparam [7:0]
     OP_ADD  = 8'b0000_0000,
@@ -128,7 +133,10 @@ localparam [7:0]
             else if (instr[31:25] == 7'b0 && instr[14:12] == 3'b101 && instr[6:0] == 7'b0110011) begin
                 next_state = SRL_S1;
             end
-
+            // OR指令
+            else if (instr[31:25] == 7'b0 && instr[14:12] == 3'b110 && instr[6:0] == 7'b0110011) begin
+                next_state = OR_S1;
+            end
             
             // LUI指令
             else if (instr[6:0] == 7'b0110111) begin
@@ -169,6 +177,10 @@ localparam [7:0]
             /* LUI指令的状态转移 */
             LUI_S1: next_state = LUI_S2;
             LUI_S2: next_state = S1;
+
+            /* OR指令的状态转移 */
+            OR_S1: next_state = OR_S2;
+            OR_S2: next_state = S1;
         endcase
     end
 
@@ -375,6 +387,27 @@ localparam [7:0]
                 alu_en = 1'b0;
             end
             /* LUI指令 */
+
+            /* OR指令 */
+            OR_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // OR_S1状态启用
+                alu_op = OP_OR;
+                op2_dir = 2'b00;
+                alu_en = 1'b1;
+            end
+            OR_S2: begin
+                // OR_S2状态启用
+                reg_in_dir = 2'b10;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+                // OR_S1状态复位
+                alu_op = 8'b0;
+                op2_dir  = 2'b00;
+                alu_en = 1'b0;
+            end
+            /* OR指令 */
         endcase
     end
     

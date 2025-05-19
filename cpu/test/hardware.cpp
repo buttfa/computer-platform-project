@@ -36,6 +36,9 @@ int main() {
     /* lui x1 0x0_1000 ; x1==0x0100_0000 */
     instr = (uint64_t)0b00000001000000000000000010110111 << 32;
     hardware::write_64bits(&hardware, 0x1C, instr);
+    /* or x1 x3 x4 ; x1==6*/
+    instr = (uint64_t)0b00000000010000011110000010110011 << 32;
+    hardware::write_64bits(&hardware, 0x20, instr);
 
     hardware.clk = 1;
     for (int i = 0; i < 100; i++) {
