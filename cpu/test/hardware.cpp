@@ -39,9 +39,15 @@ int main() {
     /* or x1 x3 x4 ; x1==6*/
     instr = (uint64_t)0b00000000010000011110000010110011 << 32;
     hardware::write_64bits(&hardware, 0x20, instr);
+    /* and x1 x1 x4 ; x1==2*/
+    instr = (uint64_t)0b00000000010000001111000010110011 << 32;
+    hardware::write_64bits(&hardware, 0x24, instr);
+    /* xor x1 x1 x1 ; x1==0*/
+    instr = (uint64_t)0b00000000000100001100000010110011 << 32;
+    hardware::write_64bits(&hardware, 0x28, instr);
 
     hardware.clk = 1;
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 200; i++) {
         hardware.clk = !hardware.clk;
         hardware.eval();
         trace.dump(i);

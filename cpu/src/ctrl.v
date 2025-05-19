@@ -74,7 +74,17 @@ module ctrl (
         /* OR_S1状态：   控制alu进行x[rs1]|x[rs2]的计算 */
         OR_S1 = LUI_S2+1,
         /* OR_S2状态：   将OR_S1状态中计算结果写入到x[rd] */
-        OR_S2 = OR_S1+1;
+        OR_S2 = OR_S1+1,
+
+        /* AND_S1状态：   控制alu进行x[rs1]&x[rs2]的计算 */
+        AND_S1 = OR_S2+1,
+        /* AND_S2状态：   将AND_S1状态中计算结果写入到x[rd] */
+        AND_S2 = AND_S1+1,
+
+        /* XOR_S1状态：   控制alu进行x[rs1]^x[rs2]的计算 */
+        XOR_S1 = AND_S2+1,
+        /* XOR_S2状态：   将XOR_S1状态中计算结果写入到x[rd] */
+        XOR_S2 = XOR_S1+1;
 
 localparam [7:0]
     OP_ADD  = 8'b0000_0000,
@@ -137,7 +147,14 @@ localparam [7:0]
             else if (instr[31:25] == 7'b0 && instr[14:12] == 3'b110 && instr[6:0] == 7'b0110011) begin
                 next_state = OR_S1;
             end
-            
+            // AND指令
+            else if (instr[31:25] == 7'b0 && instr[14:12] == 3'b111 && instr[6:0] == 7'b0110011) begin
+                next_state = AND_S1;
+            end
+            // XOR指令
+            else if (instr[31:25] == 7'b0 && instr[14:12] == 3'b100 && instr[6:0] == 7'b0110011) begin
+                next_state = XOR_S1;
+            end
             // LUI指令
             else if (instr[6:0] == 7'b0110111) begin
                 next_state = LUI_S1;
@@ -181,6 +198,14 @@ localparam [7:0]
             /* OR指令的状态转移 */
             OR_S1: next_state = OR_S2;
             OR_S2: next_state = S1;
+
+            /* AND指令的状态转移 */
+            AND_S1: next_state = AND_S2;
+            AND_S2: next_state = S1;
+
+            /* XOR指令的状态转移 */
+            XOR_S1: next_state = XOR_S2;
+            XOR_S2: next_state = S1;
         endcase
     end
 
@@ -408,6 +433,48 @@ localparam [7:0]
                 alu_en = 1'b0;
             end
             /* OR指令 */
+
+            /* AND指令 */
+            AND_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // AND_S1状态启用
+                alu_op = OP_AND;
+                op2_dir = 2'b00;
+                alu_en = 1'b1;
+            end
+            AND_S2: begin
+                // AND_S2状态启用
+                reg_in_dir = 2'b10;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+                // AND_S1状态复位
+                alu_op = 8'b0;
+                op2_dir  = 2'b00;
+                alu_en = 1'b0;
+            end
+            /* AND指令 */
+
+            /* XOR指令 */
+            XOR_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // XOR_S1状态启用
+                alu_op = OP_XOR;
+                op2_dir = 2'b00;
+                alu_en = 1'b1;
+            end
+            XOR_S2: begin
+                // XOR_S2状态启用
+                reg_in_dir = 2'b10;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+                // XOR_S1状态复位
+                alu_op = 8'b0;
+                op2_dir  = 2'b00;
+                alu_en = 1'b0;
+            end
+            /* XOR指令 */
         endcase
     end
     
