@@ -80,15 +80,15 @@ module cpu (
     // 向数据总线写数据，ram信号由controller控制
     assign bus_addr = 
     // 从ram读取pc地址指向的指令到ir
-    (ram_cs && ram_oe && pc_en) ? pc_addr : 
+    (ram_oe && pc_en) ? pc_addr : 
     
     // 从ram的x[rs1]+sign-extend(offset)地址出读取8个字节的数据到x[rd]   ld指令
-    (ram_cs && ram_oe && reg_en) ? reg_data1+{{52{instr_raw[31]}}, instr_raw[31:20]} : 
+    (ram_oe) ? reg_data1+{{52{instr_raw[31]}}, instr_raw[31:20]} : 
     
     // 将x[rs2]写入ram的x[rs1]+sign-extend(offset)地址   sd指令
-    (ram_cs && ram_we && reg_en) ? reg_data1+{{52{instr_raw[31]}}, instr_raw[31:25], instr_raw[11:7]} : 
+    (ram_we) ? reg_data1+{{52{instr_raw[31]}}, instr_raw[31:25], instr_raw[11:7]} : 
     64'bZ;
-    assign bus_data = (ram_cs && ram_we) ? reg_data2 : 64'bZ;
+    assign bus_data = (ram_we) ? reg_data2 : 64'bZ;
 
     // alu 只对来自寄存器的数据/立即数进行运算
     alu alu_inst(

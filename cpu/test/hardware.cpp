@@ -45,6 +45,15 @@ int main() {
     /* xor x1 x1 x1 ; x1==0*/
     instr = (uint64_t)0b00000000000100001100000010110011 << 32;
     hardware::write_64bits(&hardware, 0x28, instr);
+    /* ld x1 x1 0x0 ; x1==0x0010_8093_0010_8133 */
+    instr = (uint64_t)0b00000000000000001011000010000011 << 32;
+    hardware::write_64bits(&hardware, 0x2C, instr);
+    /* sd x4 x0 0x0 ; [0+0]==2 */
+    instr = (uint64_t)0b00000000010000000011000000100011 << 32;
+    hardware::write_64bits(&hardware, 0x30, instr);
+    /* ld x1 x0 0x0 ; x1==2 */
+    instr = (uint64_t)0b00000000000000000011000010000011 << 32;
+    hardware::write_64bits(&hardware, 0x34, instr);
 
     hardware.clk = 1;
     for (int i = 0; i < 200; i++) {

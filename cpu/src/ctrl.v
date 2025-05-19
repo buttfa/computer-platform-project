@@ -84,7 +84,21 @@ module ctrl (
         /* XOR_S1状态：   控制alu进行x[rs1]^x[rs2]的计算 */
         XOR_S1 = AND_S2+1,
         /* XOR_S2状态：   将XOR_S1状态中计算结果写入到x[rd] */
-        XOR_S2 = XOR_S1+1;
+        XOR_S2 = XOR_S1+1,
+
+        /* LD_S1状态：    从ram中读取x[rs1]+setx(offset)地址处的64位数据 */
+        LD_S1 = XOR_S2+1,
+        /* LD_S2状态：    将LD_S1状态中读取的64位数据写入到x[rd] */
+        LD_S2 = LD_S1+1,
+
+        /* SD_S1状态：    通知ram释放数据总线 */
+        SD_S1 = LD_S2+1,
+        /* SD_S2状态：    拉低ram的片选信号，为SD_S3状态准备 */
+        SD_S2 = SD_S1+1,
+        /* SD_S3状态：    拉高ram的片选信号，正式开始写入数据 */
+        SD_S3 = SD_S2+1,
+        /* SD_S4状态：    拉低ram的片选信号，稳定总线状态 */
+        SD_S4 = SD_S3+1;
 
 localparam [7:0]
     OP_ADD  = 8'b0000_0000,
@@ -155,6 +169,14 @@ localparam [7:0]
             else if (instr[31:25] == 7'b0 && instr[14:12] == 3'b100 && instr[6:0] == 7'b0110011) begin
                 next_state = XOR_S1;
             end
+            // LD指令
+            else if (instr[14:12] == 3'b011 && instr[6:0] == 7'b0000011) begin
+                next_state = LD_S1;
+            end
+            // SD指令
+            else if (instr[14:12] == 3'b011 && instr[6:0] == 7'b0100011) begin
+                next_state = SD_S1;
+            end
             // LUI指令
             else if (instr[6:0] == 7'b0110111) begin
                 next_state = LUI_S1;
@@ -206,6 +228,16 @@ localparam [7:0]
             /* XOR指令的状态转移 */
             XOR_S1: next_state = XOR_S2;
             XOR_S2: next_state = S1;
+
+            /* LD指令的状态转移 */
+            LD_S1: next_state = LD_S2;
+            LD_S2: next_state = S1;
+
+            /* SD指令的状态转移 */
+            SD_S1: next_state = SD_S2;
+            SD_S2: next_state = SD_S3;
+            SD_S3: next_state = SD_S4;
+            SD_S4: next_state = S1;
         endcase
     end
 
@@ -475,6 +507,47 @@ localparam [7:0]
                 alu_en = 1'b0;
             end
             /* XOR指令 */
+
+            /* LD指令 */
+            LD_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // LD_S1状态启用
+                ram_oe = 1'b1;
+                ram_we = 1'b0;
+                pc_en = 1'b0;
+                ram_cs = 1'b1;
+            end
+            LD_S2: begin
+                // LD_S2状态启用
+                reg_in_dir = 2'b01;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+                // LD_S1状态复位
+                ram_cs = 1'b0;
+                ram_oe = 1'b0;
+            end
+            /* LD指令 */
+
+            /* SD指令 */
+            SD_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // SD_S1状态启用
+                ram_we = 1'b1;
+                ram_cs = 1'b1; // 通知ram释放数据总线
+            end
+            SD_S2:  begin
+                ram_cs = 1'b0;
+            end
+            SD_S3:  begin
+                ram_cs = 1'b1;
+            end
+            SD_S4: begin
+                ram_cs = 1'b0;
+            end
+            /* SD指令 */
+            
         endcase
     end
     
