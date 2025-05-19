@@ -14,7 +14,7 @@ module ctrl (
 
     output reg reg_en,
     output reg reg_we,
-    output reg reg_in_dir,
+    output reg [1:0] reg_in_dir,
 
     output reg alu_en,
     output reg [7:0] alu_op,
@@ -189,7 +189,7 @@ localparam [7:0]
                 ir_en = 1'b0;
                 reg_en = 1'b0;
                 reg_we  = 1'b0;
-                reg_in_dir = 1'b0;
+                reg_in_dir = 2'b00;
                 alu_en = 1'b0;
                 alu_op  = 8'b0;
                 op2_dir = 2'b00;
@@ -219,7 +219,7 @@ localparam [7:0]
             end
             ADD_S2: begin
                 // ADD_S2状态启用
-                reg_in_dir = 1'b0;
+                reg_in_dir = 2'b10;
                 reg_we = 1'b1;
                 reg_en = 1'b1;
                 // ADD_S1状态复位
@@ -240,7 +240,7 @@ localparam [7:0]
             end
             ADDI_S2: begin
                 // ADDI_S2状态启用
-                reg_in_dir = 1'b0;
+                reg_in_dir = 2'b10;
                 reg_we = 1'b1;
                 reg_en = 1'b1;
                 // ADDI_S1状态复位
@@ -261,7 +261,7 @@ localparam [7:0]
             end
             SUB_S2: begin
                 // SUB_S2状态启用
-                reg_in_dir = 1'b0;
+                reg_in_dir = 2'b10;
                 reg_we = 1'b1;
                 reg_en = 1'b1;
                 // SUB_S1状态复位
@@ -282,7 +282,7 @@ localparam [7:0]
             end
             MUL_S2: begin
                 // MUL_S2状态启用
-                reg_in_dir = 1'b0;
+                reg_in_dir = 2'b10;
                 reg_we = 1'b1;
                 reg_en = 1'b1;
                 // MUL_S1状态复位
@@ -303,7 +303,7 @@ localparam [7:0]
             end
             DIV_S2: begin
                 // DIV_S2状态启用
-                reg_in_dir = 1'b0;
+                reg_in_dir = 2'b10;
                 reg_we = 1'b1;
                 reg_en = 1'b1;
                 // DIV_S1状态复位
@@ -324,7 +324,7 @@ localparam [7:0]
             end
             SLL_S2: begin
                 // SLL_S2状态启用
-                reg_in_dir = 1'b0;
+                reg_in_dir = 2'b10;
                 reg_we = 1'b1;
                 reg_en = 1'b1;
                 // SLL_S1状态复位
@@ -345,7 +345,7 @@ localparam [7:0]
             end
             SRL_S2: begin
                 // SRL_S2状态启用
-                reg_in_dir = 1'b0;
+                reg_in_dir = 2'b10;
                 reg_we = 1'b1;
                 reg_en = 1'b1;
                 // SRL_S1状态复位
@@ -366,7 +366,7 @@ localparam [7:0]
             end
             LUI_S2: begin
                 // LUI_S2状态启用
-                reg_in_dir = 1'b0;
+                reg_in_dir = 2'b10;
                 reg_we = 1'b1;
                 reg_en = 1'b1;
                 // LUI_S1状态复位

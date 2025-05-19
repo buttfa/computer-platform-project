@@ -24,7 +24,7 @@ module cpu (
     wire [4:0] rs1, rs2, rd; // 寄存器索引
     wire [63:0] reg_data1, reg_data2; // rs1和rs2的值
     wire reg_we;
-    wire reg_in_dir;
+    wire [1:0] reg_in_dir;
     
     // ALU相关
     wire alu_en;
@@ -69,8 +69,12 @@ module cpu (
         .data2(reg_data2),
 
         .we(reg_we), // 写输入数据到rd寄存器
-        // rd寄存器的值，只可能来自ALU/RAM
-        .write_data(reg_in_dir ? bus_data : alu_result)
+        // rd寄存器的值，只可能来自ALU/RAM/PC
+        .write_data(reg_in_dir==2'b01 ? bus_data : 
+                    reg_in_dir==2'b10 ? alu_result :
+                    reg_in_dir==2'b11 ? pc_addr :
+                    64'bZ
+                    )
     );
 
     // 向数据总线写数据，ram信号由controller控制
