@@ -108,7 +108,17 @@ module ctrl (
         /* BGE_S1状态：    控制alu进行x[rs1]-x[rs2]的计算 */
         BGE_S1 = BEQ_S2+1,
         /* BGE_S2状态：    根据alu的计算结果（alu_result[63]==1'b0），判断是否跳转 */
-        BGE_S2 = BGE_S1+1;
+        BGE_S2 = BGE_S1+1,
+
+        /* JAL_S1状态：    将pc(已经+4)的值写入x[rd] */
+        JAL_S1 = BGE_S2+1,
+        /* JAL_S2状态：    pc+=setx(offset) */
+        JAL_S2 = JAL_S1+1,
+
+        /* JALR_S1状态：   将pc(已经+4)的值写入x[rd] */
+        JALR_S1 = JAL_S2+1,
+        /* JALT_S2状态：   pc=x[rs1]+setx(offset) */
+        JALR_S2 = JALR_S1+1;
 
 localparam [7:0]
     OP_ADD  = 8'b0000_0000,
@@ -195,6 +205,14 @@ localparam [7:0]
             else if (instr[14:12] == 3'b101 && instr[6:0] == 7'b1100011) begin
                 next_state = BGE_S1;
             end
+            // JAL指令
+            else if (instr[6:0] == 7'b1101111) begin
+                next_state = JAL_S1;
+            end
+            // JALR指令
+            else if (instr[14:12] == 3'b010 && instr[6:0] == 7'b1100111) begin
+                next_state = JALR_S1;
+            end
             // LUI指令
             else if (instr[6:0] == 7'b0110111) begin
                 next_state = LUI_S1;
@@ -264,6 +282,14 @@ localparam [7:0]
             /* BGE指令的状态转移 */
             BGE_S1: next_state = BGE_S2;
             BGE_S2: next_state = S1;
+
+            /* JAL指令的状态转移 */
+            JAL_S1: next_state = JAL_S2;
+            JAL_S2: next_state = S1;
+
+            /* JALR指令的状态转移 */
+            JALR_S1: next_state = JALR_S2;
+            JALR_S2: next_state = S1;
         endcase
     end
 
@@ -615,6 +641,48 @@ localparam [7:0]
                 alu_en = 1'b0;
             end
             /* BGE指令 */
+
+            /* JAL指令 */
+            JAL_S1: begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // JAL_S1状态启用
+                reg_in_dir = 2'b11;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+            end
+            JAL_S2: begin
+                // JAL_S2状态启用
+                pc_in_dir = 2'b01;
+                pc_sign = 1'b1;
+                pc_en = 1;
+                // JAL_S1状态复位
+                reg_in_dir = 2'b00;
+                reg_we = 1'b0;
+                reg_en = 1'b0;
+            end
+            /* JAL指令 */
+
+            /* JALR指令 */
+            JALR_S1: begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // JALR_S1状态启用
+                reg_in_dir = 2'b11;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+            end
+            JALR_S2: begin
+                // JALR_S2状态启用
+                pc_in_dir = 2'b10;
+                pc_sign = 1'b1;
+                pc_en = 1;
+                // JALR_S1状态复位
+                reg_in_dir = 2'b00;
+                reg_we = 1'b0;
+                reg_en = 1'b0;
+            end
+            /* JALR指令 */
         endcase
     end
     

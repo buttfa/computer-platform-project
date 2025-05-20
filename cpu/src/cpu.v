@@ -39,7 +39,7 @@ module cpu (
         .reset(1'b0),
         .tar(
             // jal
-            pc_in_dir==2'b01 ? pc_addr+{{44{instr_raw[31]}}, instr_raw[31:12]} :
+            pc_in_dir==2'b01 ? pc_addr+{{44{instr_raw[31]}}, instr_raw[31:31], instr_raw[19:12], instr_raw[20:20], instr_raw[30:21]} :
             // jalr
             pc_in_dir==2'b10 ? reg_data1+{{52{instr_raw[31]}}, instr_raw[31:20]} : 
             // beq
