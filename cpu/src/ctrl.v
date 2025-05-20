@@ -118,7 +118,10 @@ module ctrl (
         /* JALR_S1状态：   将pc(已经+4)的值写入x[rd] */
         JALR_S1 = JAL_S2+1,
         /* JALT_S2状态：   pc=x[rs1]+setx(offset) */
-        JALR_S2 = JALR_S1+1;
+        JALR_S2 = JALR_S1+1,
+
+        /* UNKNOWN_INSTR状态：   遇到未知指令时，直接跳转到此状态，并在此状态循环 */
+        UNKNOWN_INSTR = 8'b1111_1111;
 
 localparam [7:0]
     OP_ADD  = 8'b0000_0000,
@@ -218,7 +221,7 @@ localparam [7:0]
                 next_state = LUI_S1;
             end
             else begin
-                next_state = S1;
+                next_state = UNKNOWN_INSTR;
             end
 
             /* ADD指令的状态转移 */
@@ -290,6 +293,9 @@ localparam [7:0]
             /* JALR指令的状态转移 */
             JALR_S1: next_state = JALR_S2;
             JALR_S2: next_state = S1;
+
+            /* 未知指令的状态转移 */
+            UNKNOWN_INSTR: next_state = UNKNOWN_INSTR;
         endcase
     end
 
