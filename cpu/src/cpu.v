@@ -98,7 +98,7 @@ module cpu (
         .operand2((op2_dir == 2'b00) ? reg_data2 :
                   // 来自 lui
                   (op2_dir == 2'b01) ? {{44{instr_raw[31]}}, instr_raw[31:12]} :
-                  // 来自 addi
+                  // 来自 addi/xori
                   (op2_dir == 2'b10) ? {{52{instr_raw[31]}}, instr_raw[31:20]} : 
                   64'bZ), // 操作数2,可能是寄存器rs2的值，也可能是立即数
         .result(alu_result)

@@ -120,6 +120,11 @@ module ctrl (
         /* JALT_S2状态：   pc=x[rs1]+setx(offset) */
         JALR_S2 = JALR_S1+1,
 
+        /* XORI_S1状态：   控制alu进行x[rs1]^setx(imm)的计算*/
+        XORI_S1 = JALR_S2+1,
+        /* XORI_S2状态：   将XORI_S1状态中计算的结果写入到x[rd] */
+        XORI_S2 = XORI_S1+1,
+
         /* UNKNOWN_INSTR状态：   遇到未知指令时，直接跳转到此状态，并在此状态循环 */
         UNKNOWN_INSTR = 8'b1111_1111;
 
@@ -216,6 +221,10 @@ localparam [7:0]
             else if (instr[14:12] == 3'b010 && instr[6:0] == 7'b1100111) begin
                 next_state = JALR_S1;
             end
+            // XORI指令
+            else if (instr[14:12] == 3'b100 && instr[6:0] == 7'b0010011) begin
+                next_state = XORI_S1;
+            end
             // LUI指令
             else if (instr[6:0] == 7'b0110111) begin
                 next_state = LUI_S1;
@@ -293,6 +302,10 @@ localparam [7:0]
             /* JALR指令的状态转移 */
             JALR_S1: next_state = JALR_S2;
             JALR_S2: next_state = S1;
+
+            /* XORI指令的状态转移 */
+            XORI_S1: next_state = XORI_S2;
+            XORI_S2: next_state = S1;
 
             /* 未知指令的状态转移 */
             UNKNOWN_INSTR: next_state = UNKNOWN_INSTR;
@@ -689,6 +702,27 @@ localparam [7:0]
                 reg_en = 1'b0;
             end
             /* JALR指令 */
+
+            /* XORI指令 */
+            XORI_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // XORI_S1状态启用
+                alu_op = OP_XOR;
+                op2_dir = 2'b10;
+                alu_en = 1'b1;
+            end
+            XORI_S2: begin
+                // XORI_S2状态启用
+                reg_in_dir = 2'b10;
+                reg_we = 1'b1;
+                reg_en = 1'b1;
+                // XORI_S1状态复位
+                alu_op = 8'b0;
+                op2_dir  = 2'b00;
+                alu_en = 1'b0;
+            end
+            /* XORI指令 */
         endcase
     end
     

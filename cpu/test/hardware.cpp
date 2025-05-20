@@ -67,6 +67,9 @@ int main() {
     /* jalr x1 x0 0x38; x1==0x3C(下条指令的地址), pc_addr==0x38 */
     // instr = (uint64_t)0b00000011100000000010000011100111 << 32;
     // hardware::write_64bits(&hardware, 0x38, instr);
+    /* xori x1 x1 0xFFF ; x1==0xFFFF_FFFF_FFFF_FFFD，其中0xFFF是12位的-1补码 */
+    instr = (uint64_t)0b11111111111100001100000010010011 << 32;
+    hardware::write_64bits(&hardware, 0x38, instr);
 
     hardware.clk = 1;
     for (int i = 0; i < 200; i++) {
