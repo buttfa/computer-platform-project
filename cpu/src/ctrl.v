@@ -98,7 +98,17 @@ module ctrl (
         /* SD_S3状态：    拉高ram的片选信号，正式开始写入数据 */
         SD_S3 = SD_S2+1,
         /* SD_S4状态：    拉低ram的片选信号，稳定总线状态 */
-        SD_S4 = SD_S3+1;
+        SD_S4 = SD_S3+1,
+
+        /* BEQ_S1状态：    控制alu进行x[rs1]-x[rs2]的计算 */
+        BEQ_S1 = SD_S4+1,
+        /* BEQ_S2状态：    根据alu的计算结果（alu_result==0），判断是否跳转 */
+        BEQ_S2 = BEQ_S1+1,
+
+        /* BGE_S1状态：    控制alu进行x[rs1]-x[rs2]的计算 */
+        BGE_S1 = BEQ_S2+1,
+        /* BGE_S2状态：    根据alu的计算结果（alu_result[63]==1'b0），判断是否跳转 */
+        BGE_S2 = BGE_S1+1;
 
 localparam [7:0]
     OP_ADD  = 8'b0000_0000,
@@ -177,6 +187,14 @@ localparam [7:0]
             else if (instr[14:12] == 3'b011 && instr[6:0] == 7'b0100011) begin
                 next_state = SD_S1;
             end
+            // BEQ指令
+            else if (instr[14:12] == 3'b000 && instr[6:0] == 7'b1100011) begin
+                next_state = BEQ_S1;
+            end
+            // BGE指令
+            else if (instr[14:12] == 3'b101 && instr[6:0] == 7'b1100011) begin
+                next_state = BGE_S1;
+            end
             // LUI指令
             else if (instr[6:0] == 7'b0110111) begin
                 next_state = LUI_S1;
@@ -238,6 +256,14 @@ localparam [7:0]
             SD_S2: next_state = SD_S3;
             SD_S3: next_state = SD_S4;
             SD_S4: next_state = S1;
+
+            /* BEQ指令的状态转移 */
+            BEQ_S1: next_state = BEQ_S2;
+            BEQ_S2: next_state = S1;
+
+            /* BGE指令的状态转移 */
+            BGE_S1: next_state = BGE_S2;
+            BGE_S2: next_state = S1;
         endcase
     end
 
@@ -548,6 +574,47 @@ localparam [7:0]
             end
             /* SD指令 */
             
+            /* BEQ指令 */
+            BEQ_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // BEQ_S1状态启用
+                alu_op = OP_SUB;
+                op2_dir = 2'b00;
+                alu_en = 1'b1;
+            end
+            BEQ_S2: begin
+                // BEQ_S2状态启用
+                pc_in_dir = 2'b00;
+                pc_sign = 1'b1;
+                pc_en = 1;
+                // BEQ_S1状态复位
+                alu_op = 8'b0;
+                op2_dir  = 2'b00;
+                alu_en = 1'b0;
+            end
+            /* BEQ指令 */
+
+            /* BGE指令 */
+            BGE_S1:  begin
+                // S2状态复位
+                ir_en = 1'b0;
+                // BGE_S1状态启用
+                alu_op = OP_SUB;
+                op2_dir = 2'b00;
+                alu_en = 1'b1;
+            end
+            BGE_S2: begin
+                // BGE_S2状态启用
+                pc_in_dir = 2'b11;
+                pc_sign = 1'b1;
+                pc_en = 1;
+                // BGE_S1状态复位
+                alu_op = 8'b0;
+                op2_dir  = 2'b00;
+                alu_en = 1'b0;
+            end
+            /* BGE指令 */
         endcase
     end
     

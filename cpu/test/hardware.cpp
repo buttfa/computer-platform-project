@@ -54,6 +54,12 @@ int main() {
     /* ld x1 x0 0x0 ; x1==2 */
     instr = (uint64_t)0b00000000000000000011000010000011 << 32;
     hardware::write_64bits(&hardware, 0x34, instr);
+    // /* beq x1 x2 0xFFC ; x1==x2==2，所以原地循环(0xFFC是12位的-4补码) */
+    // instr = (uint64_t)0b11111110001000001000110011100011 << 32;
+    // hardware::write_64bits(&hardware, 0x38, instr);
+    /* bge x1 x2 0xFFC ; x1==x2==2，所以原地循环(0xFFC是12位的-4补码) */
+    instr = (uint64_t)0b11111110001000001101110011100011 << 32;
+    hardware::write_64bits(&hardware, 0x38, instr);
 
     hardware.clk = 1;
     for (int i = 0; i < 200; i++) {
