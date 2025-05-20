@@ -1,6 +1,6 @@
 compile:
-	cd src && verilator $(TOP).v $(SRC) ../test/$(TOP).cpp --top-module $(TOP) -Mdir ../build --cc --exe --trace -CFLAGS "-g -O0" -LDFLAGS "-g"
-	make -C build -f V$(TOP).mk V$(TOP)
+	cd src && verilator $(TOP).v ../test/$(TOP).cpp --top-module $(TOP) -Mdir ../build --cc --exe --trace -CFLAGS "-g -O0" -LDFLAGS "-g"
+	make -C build -f V$(TOP).mk V$(TOP) -j
 	cp build/V$(TOP) sim/V$(TOP)
 
 run: compile
@@ -11,7 +11,7 @@ sim: run
 
 test: 
 	mkdir -p sim build
-	make sim TOP=$(TOP) SRC="$(SRC)"
+	make sim TOP=$(TOP)
 
 clean:
 	rm -rf build sim

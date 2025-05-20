@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
         if (read_data == data) {
             std::cout << "✅ Test " << i << " passed." << std::endl;
         } else {
-            std::cerr << "❌ Test " << i << " failed.\n" << std::endl;
+            std::cerr << "❌ Test " << i << " failed." << std::endl;
         }
     }
 
