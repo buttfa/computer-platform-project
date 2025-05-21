@@ -18,8 +18,11 @@ clean:
 
 hardware:
 	mkdir -p sim build
+# 生成仿真应用程序
 	make compile TOP=hardware CFLAGS=-D__HARDWARE_RELEASE__
-	./sim/Vhardware $(BIN_FILE)
+# 执行仿真应用程序
+	cd .. && ./cpu/sim/Vhardware $(BIN_FILE)
+# 绘制波形
 	gtkwave ./sim/hardware.vcd
 
 .PHONY: compile run sim clean test

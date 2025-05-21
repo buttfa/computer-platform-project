@@ -10,7 +10,11 @@ int main(int argc, char** argv) {
     Vhardware hardware;
     VerilatedVcdC trace;       // 实例化波形跟踪对象
     hardware.trace(&trace, 5); // 将波形跟踪对象与仿真模型关联
+#ifndef __HARDWARE_RELEASE__
     trace.open("./sim/hardware.vcd"); // 打开波形文件
+#else
+    trace.open("./cpu/sim/hardware.vcd"); // 打开波形文件
+#endif
 
 #ifndef __HARDWARE_RELEASE__
     uint64_t instr = 0;
