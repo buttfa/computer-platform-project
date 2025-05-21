@@ -5,3 +5,4 @@ clang++
 -std=c++17
 -I./build
 -I/usr/share/verilator/include
+-D__HARDWARE_RELEASE__

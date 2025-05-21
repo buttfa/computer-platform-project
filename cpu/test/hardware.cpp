@@ -1,17 +1,19 @@
 #include "hardware.hpp"
 #include "Vhardware.h"
 #include <cstdint>
+#include <fstream>
+#include <iostream>
 #include <verilated_vcd_c.h>
 
-int main() {
+int main(int argc, char** argv) {
     Verilated::traceEverOn(true); // 开启波形跟踪
     Vhardware hardware;
     VerilatedVcdC trace;       // 实例化波形跟踪对象
     hardware.trace(&trace, 5); // 将波形跟踪对象与仿真模型关联
     trace.open("./sim/hardware.vcd"); // 打开波形文件
 
+#ifndef __HARDWARE_RELEASE__
     uint64_t instr = 0;
-
     /* addi x1 x1 1 ; x1==1 */
     instr = (uint64_t)0b00000000000100001000000010010011 << 32;
     hardware::write_64bits(&hardware, 0x00, instr);
@@ -70,6 +72,56 @@ int main() {
     /* xori x1 x1 0xFFF ; x1==0xFFFF_FFFF_FFFF_FFFD，其中0xFFF是12位的-1补码 */
     instr = (uint64_t)0b11111111111100001100000010010011 << 32;
     hardware::write_64bits(&hardware, 0x38, instr);
+#else
+    // 检查格式
+    if (argc != 2) {
+        cerr << "Usage: Vhardware <bin_file>" << endl;
+        return 1;
+    }
+
+    // 打开文件
+    string bin_file = argv[1];
+    std::ifstream file(argv[1], std::ios::binary);
+    if (!file) {
+        std::cerr << "Error opening file: " << argv[1] << std::endl;
+        return 1;
+    }
+
+    // 读取文件并将32位指令一次写入硬件
+    uint32_t address = 0x00;
+    while (true) {
+        // 检测文件是否结束
+        if (file.eof())
+            break;
+
+        // 读取32位指令
+        uint32_t instruction;
+        file.read(reinterpret_cast<char*>(&instruction), sizeof(instruction));
+        // 转化为大端序
+        uint32_t new_instr = (instruction & 0x000000FF) >> 0 << 24 |
+                             (instruction & 0x0000FF00) >> 8 << 16 |
+                             (instruction & 0x00FF0000) >> 16 << 8 |
+                             (instruction & 0xFF000000) >> 24 << 0;
+        instruction = new_instr;
+
+        // 检测文件是否结束
+        if (file.eof())
+            break;
+
+        // 检测文件是否读取错误
+        if (!file) {
+            std::cerr << "Error reading file at address 0x" << std::hex
+                      << address << std::endl;
+            return 1;
+        }
+
+        // 将32位指令扩展到64位高位
+        uint64_t full_instruction = static_cast<uint64_t>(instruction) << 32;
+        hardware::write_64bits(&hardware, address, full_instruction);
+        address += 4; // 地址按4字节步进
+    }
+    file.close();
+#endif
 
     hardware.clk = 1;
     for (int i = 0; i < 200; i++) {
