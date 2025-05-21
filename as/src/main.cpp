@@ -107,8 +107,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    write_uint32_be(fout, 0);          // 分隔符
-    write_uint64_be(fout, code_start); // 起始地址
+    //   write_uint32_be(fout, 0);          // 分隔符
+    //   write_uint64_be(fout, code_start); // 起始地址
 
     for (const auto& [addr, tok_orig] : program) {
         vector<string> tok = tok_orig;
