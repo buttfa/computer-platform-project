@@ -1,0 +1,4 @@
+/*
+g++ -std=c++11 -o assembler_bin main.cpp
+./assembler_bin output.bin < example.asm
+*/
