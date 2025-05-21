@@ -1,17 +1,13 @@
-; 加法操作
-add x2 x1 x1
 
-; 存储数据
-sd x2 8(x1)
+addi x1 x0 10 ; x1 = x0 + 10 → x1 = 10
 
-; 跳转条件分支（跳到地址 0x20）
-beq x2 x1 0x20
 
-; 无条件跳转（跳到地址 0x24）
-jal 0x24
+sll x2 x1 x1 ; x2 = x1 << x1 → 10 << 10 = 10240
 
-; 返回（等价于 jalr x0, x1, 0）
-ret
+srl x3 x2 x1 ; x3 = x2 >> x1 → 10240 >> 10 = 10
 
-; 跳转到某地址
-jr 0x30
+div x4 x3 x1 ; x4 = x3 / x1 → 10 / 10 = 1
+
+jalr x5 4(x1) ; x5 = return addr, PC = x1 + 4
+
+jalri 8 ; 等价于 jalr x1, 8(x0)
