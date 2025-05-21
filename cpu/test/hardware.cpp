@@ -33,7 +33,7 @@ int main() {
     /* srl x1 x1 x1 ; x1==0*/
     instr = (uint64_t)0b00000000000100001101000010110011 << 32;
     hardware::write_64bits(&hardware, 0x18, instr);
-    /* lui x1 0x0_1000 ; x1==0x0100_0000 */
+    /* lui x1 0x0100_0000 ; x1==0x0100_0000 (imm[31:12]==0x01000) */
     instr = (uint64_t)0b00000001000000000000000010110111 << 32;
     hardware::write_64bits(&hardware, 0x1C, instr);
     /* or x1 x3 x4 ; x1==6*/
