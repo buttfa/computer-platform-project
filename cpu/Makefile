@@ -1,5 +1,5 @@
 compile:
-	cd src && verilator $(TOP).v ../test/$(TOP).cpp --top-module $(TOP) -Mdir ../build --cc --exe --trace -CFLAGS "-g -O0" -LDFLAGS "-g"
+	cd src && verilator $(TOP).v ../test/$(TOP).cpp --top-module $(TOP) -Mdir ../build --cc --exe --trace -CFLAGS "-g -O0 $(CFLAGS)" -LDFLAGS "-g"
 	make -C build -f V$(TOP).mk V$(TOP) -j
 	cp build/V$(TOP) sim/V$(TOP)
 
@@ -15,5 +15,11 @@ test:
 
 clean:
 	rm -rf build sim
+
+hardware:
+	mkdir -p sim build
+	make compile TOP=hardware CFLAGS=-D__HARDWARE_RELEASE__
+	./sim/Vhardware $(BIN_FILE)
+	gtkwave ./sim/hardware.vcd
 
 .PHONY: compile run sim clean test
