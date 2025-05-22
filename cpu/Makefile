@@ -21,7 +21,7 @@ hardware:
 # 生成仿真应用程序
 	make compile TOP=hardware CFLAGS=-D__HARDWARE_RELEASE__
 # 执行仿真应用程序
-	cd .. && ./cpu/sim/Vhardware $(BIN_FILE)
+	cd .. && ./cpu/sim/Vhardware $(BIN_FILE) $(SIM_TIMES)
 # 绘制波形
 	gtkwave ./sim/hardware.vcd
 
