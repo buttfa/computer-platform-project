@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -7,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 using namespace std;
 
@@ -48,14 +50,16 @@ int main(int argc, char* argv[]) {
     uint64_t start_addr = (argc >= 3) ? strtoull(argv[2], nullptr, 0) : 0x1000;
 
     unordered_map<string, int> label_addr;
-    vector<pair<int, vector<string>>> program;
+    vector<pair<pair<int, int>, vector<string>>> program;
     unordered_set<int> used;
     string line;
     int curr_addr = 0;
     bool have_prev = false;
     int line_no = 0;
 
-    // 第一遍：记录地址和标签
+    bool compile_status = true;
+
+    // 第一遍：记录地址、行数和标签
     while (getline(cin, line)) {
         ++line_no;
         size_t comment = line.find(';');
@@ -94,7 +98,7 @@ int main(int argc, char* argv[]) {
 
         used.insert(curr_addr);
         have_prev = true;
-        program.emplace_back(curr_addr, tok);
+        program.emplace_back(make_pair(make_pair(curr_addr, line_no), tok));
     }
 
     ofstream fout(output_file, ios::binary);
@@ -105,8 +109,9 @@ int main(int argc, char* argv[]) {
 
     // write_uint32_be(fout, 0);
     // write_uint64_be(fout, start_addr);
-
-    for (auto& [addr, tok] : program) {
+    for (auto& [info, tok] : program) {
+        int addr = info.first;
+        int line = info.second;
         string inst = tok[0];
         uint32_t code = 0;
 
@@ -119,17 +124,9 @@ int main(int argc, char* argv[]) {
                 inst = "xori";
             }
 
-            if (inst == "jalri") {
-                if (tok.size() != 2)
-                    throw runtime_error("jalri 格式错误");
-                string fake = "jalr";
-                string imm_reg = tok[1] + "(x0)";
-                tok = {fake, "x1", imm_reg};
-                inst = "jalr";
-                goto retry;
-            }
-
             if (inst == "ret") {
+                if (tok.size() != 1)
+                    throw runtime_error("ret 格式错误");
                 code = (0 << 20) | (1 << 15) | (0 << 12) | (0 << 7) | 0x67;
                 write_uint32_be(fout, code);
                 continue;
@@ -139,26 +136,33 @@ int main(int argc, char* argv[]) {
                 throw runtime_error("不支持 blt 指令");
 
             if (inst == "lui") {
+                if (tok.size() != 3)
+                    throw runtime_error("lui 格式错误");
                 int rd = reg_idx(tok[1]);
                 int imm = stoi(tok[2], nullptr, 0);
                 code = (imm << 12) | (rd << 7) | 0x37;
             } else if (inst == "ld") {
+                if (tok.size() != 4)
+                    throw runtime_error("ld 格式错误");
                 int rd = reg_idx(tok[1]);
-                size_t p = tok[2].find('('), q = tok[2].find(')');
-                int offset = stoi(tok[2].substr(0, p), nullptr, 0);
-                int rs1 = reg_idx(tok[2].substr(p + 1, q - p - 1));
+                int offset = stoi(tok[3]);
+                int rs1 = reg_idx(tok[2]);
                 code =
                     (offset << 20) | (rs1 << 15) | (3 << 12) | (rd << 7) | 0x03;
             } else if (inst == "sd") {
+                if (tok.size() != 4)
+                    throw runtime_error("sd 格式错误");
                 int rs2 = reg_idx(tok[1]);
-                size_t p = tok[2].find('('), q = tok[2].find(')');
-                int offset = stoi(tok[2].substr(0, p), nullptr, 0);
-                int rs1 = reg_idx(tok[2].substr(p + 1, q - p - 1));
+                int offset = stoi(tok[3]);
+                int rs1 = reg_idx(tok[2]);
                 code = ((offset >> 5) << 25) | (rs2 << 20) | (rs1 << 15) |
                        (3 << 12) | ((offset & 0x1F) << 7) | 0x23;
             } else if (inst == "add" || inst == "sub" || inst == "mul" ||
                        inst == "and" || inst == "or" || inst == "xor" ||
                        inst == "div" || inst == "sll" || inst == "srl") {
+                if (tok.size() != 4)
+                    throw runtime_error(inst + " 格式错误");
+
                 int rd = reg_idx(tok[1]), rs1 = reg_idx(tok[2]),
                     rs2 = reg_idx(tok[3]);
                 int funct3, funct7;
@@ -195,12 +199,16 @@ int main(int argc, char* argv[]) {
                 code = (funct7 << 25) | (rs2 << 20) | (rs1 << 15) |
                        (funct3 << 12) | (rd << 7) | 0x33;
             } else if (inst == "xori" || inst == "addi") {
+                if (tok.size() != 4)
+                    throw runtime_error(inst + " 格式错误");
                 int rd = reg_idx(tok[1]), rs1 = reg_idx(tok[2]);
                 int imm = stoi(tok[3], nullptr, 0);
                 int funct3 = (inst == "xori" ? 4 : 0);
                 code = (imm << 20) | (rs1 << 15) | (funct3 << 12) | (rd << 7) |
                        0x13;
             } else if (inst == "beq" || inst == "bge") {
+                if (tok.size() != 4)
+                    throw runtime_error(inst + " 格式错误");
                 int rs1 = reg_idx(tok[1]), rs2 = reg_idx(tok[2]);
                 int target;
                 try {
@@ -210,73 +218,72 @@ int main(int argc, char* argv[]) {
                         throw runtime_error("未定义标签: " + tok[3]);
                     target = label_addr[tok[3]];
                 }
-                int offset = target - addr;
+                int offset = target - (addr + 4);
                 if (offset % 2 != 0)
                     throw runtime_error("beq 偏移未对齐");
 
-                int imm12 = (offset >> 12) & 1;
-                int imm10_5 = (offset >> 5) & 0x3F;
-                int imm4_1 = (offset >> 1) & 0xF;
-                int imm11 = (offset >> 11) & 1;
+                int imm12 = (offset >> 11) & 1;
+                int imm10_5 = (offset >> 4) & 0x3F;
+                int imm4_1 = (offset >> 0) & 0xF;
+                int imm11 = (offset >> 10) & 1;
                 int funct3 = (inst == "beq") ? 0 : 5;
 
                 code = (imm12 << 31) | (imm10_5 << 25) | (rs2 << 20) |
                        (rs1 << 15) | (funct3 << 12) | (imm4_1 << 8) |
                        (imm11 << 7) | 0x63;
             } else if (inst == "jal") {
+                if (tok.size() != 3)
+                    throw runtime_error("jal 格式错误，应为: jal rd offset");
+
+                int rd = reg_idx(tok[1]);
                 int target;
                 try {
-                    target = stoi(tok[1], nullptr, 0);
+                    target = stoi(tok[2], nullptr, 0);
                 } catch (...) {
-                    if (!label_addr.count(tok[1]))
-                        throw runtime_error("未定义标签: " + tok[1]);
-                    target = label_addr[tok[1]];
+                    if (!label_addr.count(tok[2]))
+                        throw runtime_error("未定义标签: " + tok[2]);
+                    target = label_addr[tok[2]];
                 }
+
                 int offset = target - addr;
                 if (offset % 2 != 0)
-                    throw runtime_error("jal 偏移未对齐");
+                    throw runtime_error("jal 偏移必须2字节对齐");
 
-                int imm20 = (offset >> 20) & 1;
-                int imm10_1 = (offset >> 1) & 0x3FF;
-                int imm11 = (offset >> 11) & 1;
-                int imm19_12 = (offset >> 12) & 0xFF;
-                int rd = 1;
+                int imm = offset & 0x1FFFFF;
+                int imm20 = (imm >> 19) & 1;
+                int imm10_1 = (imm >> 0) & 0x3FF;
+                int imm11 = (imm >> 10) & 1;
+                int imm19_12 = (imm >> 11) & 0xFF;
 
                 code = (imm20 << 31) | (imm19_12 << 12) | (imm11 << 20) |
                        (imm10_1 << 21) | (rd << 7) | 0x6F;
-            } else if (inst == "jr") {
-                int target;
-                try {
-                    target = stoi(tok[1], nullptr, 0);
-                } catch (...) {
-                    if (!label_addr.count(tok[1]))
-                        throw runtime_error("未定义标签: " + tok[1]);
-                    target = label_addr[tok[1]];
-                }
-                int offset = target - addr;
-                code = (offset << 20) | (0 << 15) | (0 << 12) | (0 << 7) | 0x67;
             } else if (inst == "jalr") {
-                if (tok.size() != 3)
+                if (tok.size() != 4)
                     throw runtime_error("jalr 格式错误");
                 int rd = reg_idx(tok[1]);
-                size_t p = tok[2].find('('), q = tok[2].find(')');
-                if (p == string::npos || q == string::npos)
-                    throw runtime_error("jalr 偏移语法错误，应为 imm(rs1)");
-                int imm = stoi(tok[2].substr(0, p), nullptr, 0);
-                int rs1 = reg_idx(tok[2].substr(p + 1, q - p - 1));
-                code = (imm << 20) | (rs1 << 15) | (0 << 12) | (rd << 7) | 0x67;
+                int imm = stoi(tok[3]);
+                int rs1 = reg_idx(tok[2]);
+                code = (imm << 20) | (rs1 << 15) | (0b010 << 12) | (rd << 7) |
+                       0x67;
             } else {
                 throw runtime_error("未知指令: " + inst);
             }
 
             write_uint32_be(fout, code);
         } catch (exception& e) {
-            cerr << "错误（地址 " << hex << addr << "）：" << e.what() << "\n";
-            return 1;
+            cerr << "错误（行数 " << line << "）：" << e.what() << "\n";
+            compile_status = false;
         }
     }
 
     fout.close();
-    cout << "汇编成功，输出文件: " << output_file << "\n";
-    return 0;
+    if (compile_status) {
+        cout << "汇编成功，输出文件: " << output_file << "\n";
+        return 0;
+    }
+    // 如果编译失败，则删除编译的二进制文件
+    else {
+        filesystem::remove(output_file);
+        return 1;
+    }
 }
