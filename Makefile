@@ -1,9 +1,11 @@
-# 测试用汇编文件的默认路径
-FILE=./as/src/example.asm
 # 默认仿真时间步数
-TIMES=200
+TIMES=800
 
 run:
+# 检查FILE变量是否被设置
+ifeq ($(FILE),)
+	$(error FILE 变量没有被设置。 仿真测试方法: make FILE=<汇编文件路径> [TIMES=<仿真时间步数>])
+endif
 # 步骤一：编译生成as
 	cd as && make
 # 步骤二：使用步骤一生成的as，编译汇编代码为二进制文件
