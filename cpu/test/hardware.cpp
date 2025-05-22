@@ -78,8 +78,8 @@ int main(int argc, char** argv) {
     hardware::write_64bits(&hardware, 0x38, instr);
 #else
     // 检查格式
-    if (argc != 2) {
-        cerr << "Usage: Vhardware <bin_file>" << endl;
+    if (argc != 3) {
+        cerr << "Usage: Vhardware <bin_file> <sim_times>" << endl;
         return 1;
     }
 
@@ -90,6 +90,9 @@ int main(int argc, char** argv) {
         std::cerr << "Error opening file: " << argv[1] << std::endl;
         return 1;
     }
+
+    // 获取仿真时间步数
+    int sim_times = atoi(argv[2]);
 
     // 读取文件并将32位指令一次写入硬件
     uint32_t address = 0x00;
@@ -128,7 +131,7 @@ int main(int argc, char** argv) {
 #endif
 
     hardware.clk = 1;
-    for (int i = 0; i < 200; i++) {
+    for (int i = 0; i < sim_times; i++) {
         hardware.clk = !hardware.clk;
         hardware.eval();
         trace.dump(i);
