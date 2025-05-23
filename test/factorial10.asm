@@ -1,4 +1,4 @@
-    addi x1 x0 1 ; 将x1的值设为0
+    addi x1 x0 1 ; 将x1的值设为1
     addi x3 x0 10 ; 向x3中写入10
 
 loop:
