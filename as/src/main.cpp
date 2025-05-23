@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
     unordered_set<int> used;
     string line;
     int curr_addr = 0;
-    bool have_prev = false;
+    bool have_prev = true;
     int line_no = 0;
 
     bool compile_status = true;
@@ -82,15 +82,6 @@ int main(int argc, char* argv[]) {
                 continue;
         }
 
-        if (tok[0].substr(0, 2) == "0x") {
-            curr_addr = stoi(tok[0], nullptr, 0);
-            tok.erase(tok.begin());
-        } else if (have_prev) {
-            curr_addr += 4;
-        } else {
-            curr_addr = 0;
-        }
-
         if (used.count(curr_addr)) {
             cerr << "错误：地址重复：" << hex << curr_addr << '\n';
             return 1;
@@ -98,6 +89,7 @@ int main(int argc, char* argv[]) {
 
         used.insert(curr_addr);
         have_prev = true;
+        curr_addr += 4;
         program.emplace_back(make_pair(make_pair(curr_addr, line_no), tok));
     }
 
@@ -218,7 +210,7 @@ int main(int argc, char* argv[]) {
                         throw runtime_error("未定义标签: " + tok[3]);
                     target = label_addr[tok[3]];
                 }
-                int offset = target - (addr + 4);
+                int offset = target - (addr);
                 if (offset % 2 != 0)
                     throw runtime_error("beq 偏移未对齐");
 
