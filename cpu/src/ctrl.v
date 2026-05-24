@@ -218,7 +218,7 @@ localparam [7:0]
                 next_state = JAL_S1;
             end
             // JALR指令
-            else if (instr[14:12] == 3'b010 && instr[6:0] == 7'b1100111) begin
+            else if (instr[14:12] == 3'b000 && instr[6:0] == 7'b1100111) begin
                 next_state = JALR_S1;
             end
             // XORI指令

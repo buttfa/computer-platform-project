@@ -21,14 +21,14 @@ int reg_idx(const string& r) {
     return idx;
 }
 
-void write_uint32_be(ofstream& fout, uint32_t val) {
+void write_uint32_le(ofstream& fout, uint32_t val) {
     for (int i = 0; i < 4; ++i)
-        fout.put((val >> (8 * (3 - i))) & 0xFF);
+        fout.put((val >> (8 * i)) & 0xFF);
 }
 
-void write_uint64_be(ofstream& fout, uint64_t val) {
+void write_uint64_le(ofstream& fout, uint64_t val) {
     for (int i = 0; i < 8; ++i)
-        fout.put((val >> (8 * (7 - i))) & 0xFF);
+        fout.put((val >> (8 * i)) & 0xFF);
 }
 
 vector<string> tokenize(const string& line) {
@@ -99,8 +99,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // write_uint32_be(fout, 0);
-    // write_uint64_be(fout, start_addr);
+    // write_uint32_le(fout, 0);
+    // write_uint64_le(fout, start_addr);
     for (auto& [info, tok] : program) {
         int addr = info.first;
         int line = info.second;
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
                 if (tok.size() != 1)
                     throw runtime_error("ret 格式错误");
                 code = (0 << 20) | (1 << 15) | (0 << 12) | (0 << 7) | 0x67;
-                write_uint32_be(fout, code);
+                write_uint32_le(fout, code);
                 continue;
             }
 
@@ -255,13 +255,13 @@ int main(int argc, char* argv[]) {
                 int rd = reg_idx(tok[1]);
                 int imm = stoi(tok[3]);
                 int rs1 = reg_idx(tok[2]);
-                code = (imm << 20) | (rs1 << 15) | (0b010 << 12) | (rd << 7) |
+                code = (imm << 20) | (rs1 << 15) | (0 << 12) | (rd << 7) |
                        0x67;
             } else {
                 throw runtime_error("未知指令: " + inst);
             }
 
-            write_uint32_be(fout, code);
+            write_uint32_le(fout, code);
         } catch (exception& e) {
             cerr << "错误（行数 " << line << "）：" << e.what() << "\n";
             compile_status = false;

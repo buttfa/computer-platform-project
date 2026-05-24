@@ -54,7 +54,7 @@ module cpu (
 
     ir ir_inst(
         .en(ir_en),
-        .instr_in(bus_data[63:32]), // 将bus_data的高32位作为指令缓存
+        .instr_in(bus_data[31:0]), // 将bus_data的低32位作为指令缓存
         .instr_out(instr_raw)
     );
 
